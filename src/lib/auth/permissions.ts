@@ -40,6 +40,20 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     access: "staff",
   },
   {
+    href: "/admin/configuratii",
+    title: "Configurații salvate",
+    description: "Configurații oglinzi",
+    icon: ClipboardList,
+    access: "staff",
+  },
+  {
+    href: "/admin/oferte",
+    title: "Oferte",
+    description: "Oferte clienți",
+    icon: ShoppingBag,
+    access: "staff",
+  },
+  {
     href: "/admin/produse",
     title: "Produse",
     description: "Catalog produse",

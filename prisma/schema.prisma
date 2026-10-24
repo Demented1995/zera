@@ -23,6 +23,134 @@ model User {
 
   materialPriceChanges    MaterialPriceHistory[]
   pricingSettingsChanges  PricingSettingsHistory[]
+  configurationsCreated   SavedConfiguration[]   @relation("ConfigCreatedBy")
+  configurationsUpdated   SavedConfiguration[]   @relation("ConfigUpdatedBy")
+  offersCreated           CustomerOffer[]        @relation("OfferCreatedBy")
+  offersUpdated           CustomerOffer[]        @relation("OfferUpdatedBy")
+  offerRevisionsIssued    OfferRevision[]        @relation("RevisionIssuedBy")
+}
+
+enum ConfigStatus {
+  DRAFT
+  COMPLETE
+  INCOMPLETE
+}
+
+enum OfferStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+/// Saved professional configurator mirror configuration (structured JSON + denormalized list fields).
+model SavedConfiguration {
+  id               String       @id @default(cuid())
+  /// Human-readable unique code, e.g. CFG-2026-0001
+  code             String       @unique
+  name             String
+  status           ConfigStatus @default(DRAFT)
+  /// Full ConfiguratorState (shape, LED, processing, commercial, notes).
+  configJson       Json
+  /// Last calculation result from the central engine (may be incomplete).
+  calculationJson  Json?
+  shapeId          String
+  shapeLabel       String
+  widthMm          Decimal      @db.Decimal(12, 2)
+  heightMm         Decimal      @db.Decimal(12, 2)
+  glassTypeId      String
+  sinecost         Decimal?     @db.Decimal(12, 2)
+  wholesalePrice   Decimal?     @db.Decimal(12, 2)
+  retailPrice      Decimal?     @db.Decimal(12, 2)
+  internalNotes    String?
+  createdById      String
+  createdBy        User         @relation("ConfigCreatedBy", fields: [createdById], references: [id])
+  updatedById      String
+  updatedBy        User         @relation("ConfigUpdatedBy", fields: [updatedById], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  offers           CustomerOffer[]
+
+  @@index([status])
+  @@index([updatedAt])
+  @@index([name])
+  @@index([code])
+}
+
+/// Customer commercial offer. Issued prices live in OfferRevision snapshots — never mutate after issue.
+model CustomerOffer {
+  id                   String             @id @default(cuid())
+  /// Human-readable unique number, e.g. OFT-2026-0001
+  number               String             @unique
+  status               OfferStatus        @default(DRAFT)
+  configurationId      String?
+  configuration        SavedConfiguration? @relation(fields: [configurationId], references: [id])
+  clientName           String
+  clientPhone          String
+  clientEmail          String?
+  clientCompany        String?
+  clientNotes          String?
+  productName          String
+  quantity             Int                @default(1)
+  /// wholesale | retail — customer never sees sinecost
+  priceTier            String             @default("retail")
+  validityDays         Int                @default(14)
+  validUntil           DateTime?
+  commercialNotes      String?
+  /// Working draft payload (editable until first issue / between revisions as draft work).
+  draftConfigJson      Json?
+  draftCalculationJson Json?
+  issuedAt             DateTime?
+  createdById          String
+  createdBy            User               @relation("OfferCreatedBy", fields: [createdById], references: [id])
+  updatedById          String
+  updatedBy            User               @relation("OfferUpdatedBy", fields: [updatedById], references: [id])
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  revisions            OfferRevision[]
+
+  @@index([status])
+  @@index([issuedAt])
+  @@index([number])
+}
+
+/// Immutable commercial snapshot for an issued offer revision.
+model OfferRevision {
+  id                    String        @id @default(cuid())
+  offerId               String
+  offer                 CustomerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  revisionNumber        Int
+  /// Full immutable commercial + technical snapshot used for PDF and history.
+  snapshotJson          Json
+  unitPrice             Decimal       @db.Decimal(12, 2)
+  servicesTotal         Decimal       @db.Decimal(12, 2)
+  offerTotal            Decimal       @db.Decimal(12, 2)
+  priceTier             String
+  /// Config at issuance (structured).
+  configJson            Json
+  /// Customer-safe calculation excerpt (no sinecost / internal costs).
+  calculationPublicJson Json
+  issuedAt              DateTime      @default(now())
+  issuedById            String
+  issuedBy              User          @relation("RevisionIssuedBy", fields: [issuedById], references: [id])
+  notes                 String?
+
+  @@unique([offerId, revisionNumber])
+  @@index([offerId, issuedAt])
+}
+
+/// Company legal / commercial identity for offer PDFs (ADMIN). Missing fields block issue.
+model CompanySettings {
+  id          String   @id @default("default")
+  legalName   String?
+  taxId       String?
+  address     String?
+  phone       String?
+  email       String?
+  bankDetails String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 /// Categories for materials, components, and operations (e.g. Manoperă).
