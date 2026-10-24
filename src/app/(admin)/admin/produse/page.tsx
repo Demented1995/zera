@@ -1,14 +1,6 @@
-import { ModulePlaceholder } from "@/components/admin/module-placeholder";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Produse | ZERA",
-};
-
-export default function ProdusePage() {
-  return (
-    <ModulePlaceholder
-      title="Produse"
-      description="Catalogul de produse va fi gestionat aici în etapele următoare."
-    />
-  );
+/** Stage 6.1: commercial catalog lives under Modele de oglinzi. */
+export default function ProduseRedirectPage() {
+  redirect("/admin/modele");
 }

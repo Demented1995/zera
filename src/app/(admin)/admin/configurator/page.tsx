@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/admin/page-header";
 import { ConfiguratorWorkspace } from "@/components/configurator/configurator-workspace";
 import { requireStaffSession } from "@/lib/auth/guards";
+import { getMirrorModel } from "@/modules/catalog/queries";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { getSavedConfiguration } from "@/modules/offers/queries";
 
@@ -9,7 +10,7 @@ export const metadata = {
 };
 
 type PageProps = {
-  searchParams?: Promise<{ id?: string }>;
+  searchParams?: Promise<{ id?: string; modelId?: string }>;
 };
 
 export default async function ConfiguratorPage({ searchParams }: PageProps) {
@@ -17,6 +18,7 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
   const isAdmin = session.user.role === "ADMIN";
   const params = searchParams ? await searchParams : {};
   const id = params.id;
+  const modelId = params.modelId;
 
   let initialState: ConfiguratorState | null = null;
   let initialConfigId: string | null = null;
@@ -31,13 +33,21 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
       initialConfigName = saved.name;
       initialState = saved.configJson as unknown as ConfiguratorState;
     }
+  } else if (modelId) {
+    // Load commercial model defaults into the professional configurator (working copy).
+    // Does not mutate the catalog model or issued offer history.
+    const model = await getMirrorModel(modelId);
+    if (model) {
+      initialConfigName = `Lucru — ${model.name}`;
+      initialState = model.configJson as unknown as ConfiguratorState;
+    }
   }
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Configurator profesional"
-        description="Stage 5.5 — salvare configurații și generare oferte clienți (PDF + snapshot imutabil)."
+        description="Configurare oglinzi, salvare, oferte. Modelele comerciale se gestionează separat în Modele de oglinzi."
       />
       <ConfiguratorWorkspace
         canOverrideLedLength={isAdmin}
