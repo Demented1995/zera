@@ -11,6 +11,7 @@ export {
   type CatalogMaterial,
   type ComponentQuantities,
   type CostLine,
+  type CurvedEdgeAddsMm,
   type GlassShapeKind,
   type PricingRules,
 } from "@/modules/pricing/engine/types";

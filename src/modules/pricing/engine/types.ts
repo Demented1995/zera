@@ -51,6 +51,11 @@ export type CalculationInput = {
     top: boolean;
     bottom: boolean;
   };
+  /**
+   * Optional explicit per-side mm adds (e.g. custom shape from configurator).
+   * When set, overrides boolean curvedEdges + standard curvedEdgeAddMm.
+   */
+  explicitCurvedEdgeAddsMm?: CurvedEdgeAddsMm;
   components: ComponentQuantities;
   /**
    * Decorative sandblast area in m² (separate from touch-symbol sandblast).
