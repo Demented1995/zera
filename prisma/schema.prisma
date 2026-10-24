@@ -211,11 +211,17 @@ model MirrorModel {
   glassTypeId       String
   defaultWidthMm    Decimal           @db.Decimal(12, 2)
   defaultHeightMm   Decimal           @db.Decimal(12, 2)
-  /// Prepared for Stage 6.2 dimension limits — unused commercially in 6.1 (always null).
+  /// Stage 6.2 commercial dimension limits (optional; not global mandatory).
   minWidthMm        Decimal?          @db.Decimal(12, 2)
   maxWidthMm        Decimal?          @db.Decimal(12, 2)
   minHeightMm       Decimal?          @db.Decimal(12, 2)
   maxHeightMm       Decimal?          @db.Decimal(12, 2)
+  stepWidthMm       Decimal?          @db.Decimal(12, 2)
+  stepHeightMm      Decimal?          @db.Decimal(12, 2)
+  /// Versioned customer configurator rules (FIXED/EDITABLE/HIDDEN + allowed values).
+  /// Null / missing → safe defaults: all FIXED (no public options auto-enabled).
+  configuratorRulesJson Json?
+  rulesVersion      Int               @default(1)
   sinecost          Decimal?          @db.Decimal(12, 2)
   wholesalePrice    Decimal?          @db.Decimal(12, 2)
   retailPrice       Decimal?          @db.Decimal(12, 2)

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { ModelRulesEditor } from "@/components/catalog/model-rules-editor";
 import { ModelTechEditor } from "@/components/catalog/model-tech-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ type ModelFormProps = {
   savedConfigs: SavedConfigOption[];
   canEditTariffs: boolean;
   canOverrideLedLength: boolean;
+  canManageRules?: boolean;
   initial?: {
     id: string;
     code: string;
@@ -37,16 +39,21 @@ type ModelFormProps = {
     status: "DRAFT" | "ACTIVE" | "ARCHIVED";
     config: ConfiguratorState;
     sourceConfigurationId: string | null;
+    configuratorRulesJson?: unknown | null;
+    rulesVersion?: number;
+    defaultWidthMm?: number;
+    defaultHeightMm?: number;
   } | null;
 };
 
-type TabId = "identity" | "tech" | "status";
+type TabId = "identity" | "tech" | "rules" | "status";
 
 export function ModelForm({
   categories,
   savedConfigs,
   canEditTariffs,
   canOverrideLedLength,
+  canManageRules = false,
   initial = null,
 }: ModelFormProps) {
   const router = useRouter();
@@ -75,15 +82,17 @@ export function ModelForm({
   );
   const [dirty, setDirty] = useState(false);
 
-  const tabs = useMemo(
-    () =>
-      [
-        { id: "identity" as const, label: "Identitate" },
-        { id: "tech" as const, label: "Config tehnică" },
-        { id: "status" as const, label: "Status comercial" },
-      ] as const,
-    [],
-  );
+  const tabs = useMemo(() => {
+    const items: Array<{ id: TabId; label: string }> = [
+      { id: "identity", label: "Identitate" },
+      { id: "tech", label: "Config tehnică" },
+    ];
+    if (initial?.id) {
+      items.push({ id: "rules", label: "Reguli configurator" });
+    }
+    items.push({ id: "status", label: "Status comercial" });
+    return items;
+  }, [initial?.id]);
 
   function markDirty() {
     setDirty(true);
@@ -274,6 +283,20 @@ export function ModelForm({
         />
       ) : null}
 
+      {tab === "rules" && initial?.id ? (
+        <ModelRulesEditor
+          modelId={initial.id}
+          defaultWidthMm={
+            initial.defaultWidthMm ?? Number(initial.config.widthMm)
+          }
+          defaultHeightMm={
+            initial.defaultHeightMm ?? Number(initial.config.heightMm)
+          }
+          initialRules={initial.configuratorRulesJson ?? null}
+          canManage={canManageRules}
+        />
+      ) : null}
+
       {tab === "status" ? (
         <section className="grid max-w-xl gap-4 rounded-xl border border-border bg-card p-5">
           <div className="grid gap-2">
@@ -299,18 +322,27 @@ export function ModelForm({
         </section>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={pending} onClick={save}>
-          {initial ? "Salvează modelul" : "Creează modelul"}
-          {dirty ? " *" : ""}
-        </Button>
+      {tab !== "rules" ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={pending} onClick={save}>
+            {initial ? "Salvează modelul" : "Creează modelul"}
+            {dirty ? " *" : ""}
+          </Button>
+          <Link
+            href="/admin/modele"
+            className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-sm hover:bg-muted"
+          >
+            Înapoi la listă
+          </Link>
+        </div>
+      ) : (
         <Link
           href="/admin/modele"
           className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-sm hover:bg-muted"
         >
           Înapoi la listă
         </Link>
-      </div>
+      )}
     </div>
   );
 }

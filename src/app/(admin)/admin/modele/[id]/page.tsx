@@ -4,7 +4,10 @@ import { ModelForm } from "@/components/catalog/model-form";
 import { PageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireStaffSession } from "@/lib/auth/guards";
-import { canManageCatalog } from "@/modules/catalog/permissions";
+import {
+  canManageCatalog,
+  canManageConfiguratorRules,
+} from "@/modules/catalog/permissions";
 import {
   getMirrorModel,
   listMirrorCategories,
@@ -84,6 +87,7 @@ export default async function ModelEditPage({ params }: PageProps) {
         }))}
         canEditTariffs={session.user.role === "ADMIN"}
         canOverrideLedLength={session.user.role === "ADMIN"}
+        canManageRules={canManageConfiguratorRules(session.user.role)}
         initial={{
           id: model.id,
           code: model.code,
@@ -95,6 +99,10 @@ export default async function ModelEditPage({ params }: PageProps) {
           status: model.status,
           config: model.configJson as unknown as ConfiguratorState,
           sourceConfigurationId: model.sourceConfigurationId,
+          configuratorRulesJson: model.configuratorRulesJson,
+          rulesVersion: model.rulesVersion,
+          defaultWidthMm: Number(model.defaultWidthMm),
+          defaultHeightMm: Number(model.defaultHeightMm),
         }}
       />
     </div>
