@@ -19,10 +19,14 @@ export {
   type ComponentQuantities,
   type CostLine,
   type CurvedEdgeAddsMm,
+  type CommercialServicesBreakdown,
   type DetailedComponentLine,
   type ElectricalCostBreakdown,
+  type FinancialSummary,
   type GlassShapeKind,
+  type LaborLine,
   type PricingRules,
   type ProcessingCostBreakdown,
+  type ServiceLine,
 } from "@/modules/pricing/engine/types";
 export type { LedLengthComputation, LedPositioning } from "@/modules/pricing/engine/led-length";

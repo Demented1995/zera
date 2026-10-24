@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
+import { CommercialSections } from "@/components/configurator/commercial-sections";
 import { LightingSection } from "@/components/configurator/lighting-section";
 import { ProcessingSections } from "@/components/configurator/processing-sections";
 import { SummaryPanel } from "@/components/configurator/summary-panel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { runConfiguratorQuoteAction } from "@/modules/configurator/actions";
+import {
+  defaultCommercialConfig,
+  type CommercialConfig,
+} from "@/modules/configurator/commercial";
 import { CONFIGURATOR_GLASS_TYPES } from "@/modules/configurator/glass-types";
 import {
   defaultLightingConfig,
@@ -34,6 +39,7 @@ type FormState = {
   edgeBottomMm: string;
   lighting: LightingConfig;
   processing: ProcessingConfig;
+  commercial: CommercialConfig;
 };
 
 const INITIAL: FormState = {
@@ -47,6 +53,7 @@ const INITIAL: FormState = {
   edgeBottomMm: "0",
   lighting: defaultLightingConfig(),
   processing: defaultProcessingConfig(),
+  commercial: defaultCommercialConfig(),
 };
 
 function parsePositive(value: string): number | null {
@@ -75,10 +82,12 @@ function parseNonNeg(value: string): number | null {
 
 type ConfiguratorWorkspaceProps = {
   canOverrideLedLength?: boolean;
+  canEditTariffs?: boolean;
 };
 
 export function ConfiguratorWorkspace({
   canOverrideLedLength = false,
+  canEditTariffs = false,
 }: ConfiguratorWorkspaceProps) {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [quote, setQuote] = useState<ConfiguratorQuote | null>(null);
@@ -168,6 +177,7 @@ export function ConfiguratorWorkspace({
         electricalConnection: lighting.electricalConnection,
         extraComponents: lighting.extraComponents,
         processing: form.processing,
+        commercial: form.commercial,
       },
     };
   }, [form, selectedShape?.edgeMode]);
@@ -211,8 +221,8 @@ export function ConfiguratorWorkspace({
               Configurare
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Stage 5.3 — formă, dimensiuni, LED, prelucrări și accesorii.
-              Actualizare automată la modificare.
+              Stage 5.4 — formă, LED, prelucrări, manoperă, ambalare, livrare și
+              montaj. Actualizare automată la modificare.
             </p>
           </div>
 
@@ -321,6 +331,12 @@ export function ConfiguratorWorkspace({
         <ProcessingSections
           processing={form.processing}
           onChange={(processing) => update("processing", processing)}
+        />
+
+        <CommercialSections
+          commercial={form.commercial}
+          canEditTariffs={canEditTariffs}
+          onChange={(commercial) => update("commercial", commercial)}
         />
       </div>
 

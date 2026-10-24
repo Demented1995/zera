@@ -20,6 +20,11 @@ import {
   type LightingConfig,
 } from "@/modules/configurator/lighting";
 import {
+  buildCommercialLines,
+  defaultCommercialConfig,
+  type CommercialConfig,
+} from "@/modules/configurator/commercial";
+import {
   buildProcessingDetailedComponents,
   defaultProcessingConfig,
   type ProcessingConfig,
@@ -38,6 +43,7 @@ export type ConfiguratorState = {
   manualEdgeAddsMm: CurvedEdgeAddsMm;
   lighting: LightingConfig;
   processing: ProcessingConfig;
+  commercial: CommercialConfig;
 };
 
 export type ConfiguratorQuote = {
@@ -47,6 +53,7 @@ export type ConfiguratorQuote = {
   heightMm: number;
   lighting: LightingConfig;
   processing: ProcessingConfig;
+  commercial: CommercialConfig;
   ledSystems: LedSystemResolved[];
   /** Human-readable blockers before/alongside engine (e.g. unconfirmed shape formula). */
   blockers: string[];
@@ -138,6 +145,10 @@ export function buildCalculationInput(options: {
     glassAreaM2: glassArea.areaM2,
   });
 
+  const commercialBuilt = buildCommercialLines({
+    commercial: state.commercial,
+  });
+
   return {
     widthMm: state.widthMm,
     heightMm: state.heightMm,
@@ -151,6 +162,9 @@ export function buildCalculationInput(options: {
       ...processingBuilt.detailedComponents,
     ],
     decorativeSandblastAreaM2: processingBuilt.decorativeSandblastAreaM2,
+    laborLines: commercialBuilt.laborLines,
+    packagingIncludedLines: commercialBuilt.packagingIncludedLines,
+    serviceLines: commercialBuilt.serviceLines,
     materials: applyGlassTypeToCatalog(materials, glassType),
     rules,
   };
@@ -169,6 +183,7 @@ function emptyQuoteShell(options: {
     heightMm: options.state.heightMm,
     lighting: options.state.lighting,
     processing: options.state.processing,
+    commercial: options.state.commercial,
     ledSystems: [],
     blockers: options.blockers,
     calculation: null,
@@ -182,7 +197,13 @@ export function quoteConfigurator(options: {
 }): ConfiguratorQuote {
   const lighting = options.state.lighting ?? defaultLightingConfig();
   const processing = options.state.processing ?? defaultProcessingConfig();
-  const state: ConfiguratorState = { ...options.state, lighting, processing };
+  const commercial = options.state.commercial ?? defaultCommercialConfig();
+  const state: ConfiguratorState = {
+    ...options.state,
+    lighting,
+    processing,
+    commercial,
+  };
   const shape = getShapeById(state.shapeId);
   const glassType = getGlassTypeById(state.glassTypeId);
   const blockers: string[] = [];
@@ -262,6 +283,9 @@ export function quoteConfigurator(options: {
   });
   blockers.push(...processingBuilt.blockers);
 
+  const commercialBuilt = buildCommercialLines({ commercial });
+  blockers.push(...commercialBuilt.blockers);
+
   const input = buildCalculationInput({
     state,
     shape,
@@ -279,6 +303,7 @@ export function quoteConfigurator(options: {
       heightMm: state.heightMm,
       lighting,
       processing,
+      commercial,
       ledSystems: lightingBuilt.ledSystems,
       blockers,
       calculation: null,
@@ -303,17 +328,32 @@ export function quoteConfigurator(options: {
     calculation.wholesalePrice = null;
     calculation.retailPrice = null;
     calculation.totalProductionCost = null;
+    if (calculation.financial) {
+      calculation.financial.sinecost = null;
+      calculation.financial.wholesalePrice = null;
+      calculation.financial.retailPrice = null;
+      calculation.financial.offerWholesale = null;
+      calculation.financial.offerRetail = null;
+    }
   }
 
   const configBlockers = [
     ...lightingBuilt.blockers,
     ...processingBuilt.blockers,
+    ...commercialBuilt.blockers,
   ];
   if (configBlockers.length > 0) {
     calculation.status = "INCOMPLETE";
     calculation.wholesalePrice = null;
     calculation.retailPrice = null;
     calculation.totalProductionCost = null;
+    if (calculation.financial) {
+      calculation.financial.sinecost = null;
+      calculation.financial.wholesalePrice = null;
+      calculation.financial.retailPrice = null;
+      calculation.financial.offerWholesale = null;
+      calculation.financial.offerRetail = null;
+    }
     for (const blocker of configBlockers) {
       if (!calculation.missingCosts.includes(blocker)) {
         calculation.missingCosts.push(blocker);
@@ -328,6 +368,7 @@ export function quoteConfigurator(options: {
     heightMm: state.heightMm,
     lighting,
     processing,
+    commercial,
     ledSystems: lightingBuilt.ledSystems,
     blockers,
     calculation,

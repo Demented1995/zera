@@ -11,6 +11,12 @@ import {
   SWITCH_TYPES,
 } from "@/modules/configurator/lighting";
 import {
+  DELIVERY_TYPES,
+  INSTALL_TYPES,
+  LABOR_OPS,
+  PACKAGING_TYPES,
+} from "@/modules/configurator/commercial";
+import {
   BRANDING_OPTIONS,
   CUTOUT_TYPES,
   DEFOG_CONTROLS,
@@ -217,6 +223,58 @@ const processingSchema = z.object({
     .default([]),
 });
 
+const laborOpIds = LABOR_OPS.map((item) => item.id) as [
+  "simple-assembly",
+  ...Array<(typeof LABOR_OPS)[number]["id"]>,
+];
+const packagingTypeIds = PACKAGING_TYPES.map((item) => item.id) as [
+  "none",
+  ...Array<(typeof PACKAGING_TYPES)[number]["id"]>,
+];
+const deliveryTypeIds = DELIVERY_TYPES.map((item) => item.id) as [
+  "pickup",
+  ...Array<(typeof DELIVERY_TYPES)[number]["id"]>,
+];
+const installTypeIds = INSTALL_TYPES.map((item) => item.id) as [
+  "none",
+  ...Array<(typeof INSTALL_TYPES)[number]["id"]>,
+];
+
+const commercialSchema = z.object({
+  laborOps: z
+    .array(
+      z.object({
+        id: z.enum(laborOpIds),
+        enabled: z.coerce.boolean(),
+        qty: nonNeg,
+        tariff: nullableNonNeg,
+        note: z.string().max(300).default(""),
+      }),
+    )
+    .default([]),
+  packagingType: z.enum(packagingTypeIds).default("none"),
+  packagingRole: z.enum(["included", "extra"]).default("included"),
+  packagingQty: nonNeg.default(0),
+  packagingTariff: nullableNonNeg,
+  deliveryType: z.enum(deliveryTypeIds).default("pickup"),
+  deliveryLocality: z.string().max(200).default(""),
+  deliveryDistanceKm: nullableNonNeg,
+  deliveryTariff: nullableNonNeg,
+  deliveryNotes: z.string().max(500).default(""),
+  installType: z.enum(installTypeIds).default("none"),
+  installQty: z.coerce.number().finite().int().min(0).default(1),
+  installComplexity: z.string().max(200).default(""),
+  installFloor: z.preprocess(
+    (value) =>
+      value === "" || value === null || value === undefined ? null : value,
+    z.coerce.number().finite().int().nullable(),
+  ),
+  installManualCarry: z.coerce.boolean().default(false),
+  installNotes: z.string().max(500).default(""),
+  installTariff: nullableNonNeg,
+  priceTier: z.enum(["wholesale", "retail"]).default("retail"),
+});
+
 export const configuratorInputSchema = z
   .object({
     shapeId: z.enum(shapeIds),
@@ -241,6 +299,7 @@ export const configuratorInputSchema = z
     electricalConnection: z.enum(connectionIds).default("direct-cable"),
     extraComponents: z.array(extraSchema).default([]),
     processing: processingSchema.optional(),
+    commercial: commercialSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const checkOverride = (

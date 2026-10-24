@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  defaultCommercialConfig,
+  type CommercialConfig,
+} from "@/modules/configurator/commercial";
+import {
   defaultLedSystem,
   defaultLightingConfig,
   type LightingConfig,
@@ -77,6 +81,7 @@ function state(
     glassTypeId: string;
     lighting: LightingConfig;
     processing: ProcessingConfig;
+    commercial: CommercialConfig;
   }> = {},
 ) {
   return {
@@ -87,6 +92,7 @@ function state(
     manualEdgeAddsMm: { left: 0, right: 0, top: 0, bottom: 0 },
     lighting: defaultLightingConfig(),
     processing: defaultProcessingConfig(),
+    commercial: defaultCommercialConfig(),
     ...overrides,
   };
 }
@@ -493,6 +499,160 @@ describe("configurator Stage 5.3 processing", () => {
     assert.equal(quote.calculation?.glassCost, 360);
     assert.equal(quote.ledSystems[0]?.length?.totalLengthM, 2.2);
     assert.equal(quote.calculation?.electrical?.frontLed, 88);
+    assert.equal(quote.calculation?.status, "COMPLETE");
+  });
+});
+
+describe("configurator Stage 5.4 commercial", () => {
+  it("labor enters sinecost; 30%/70% markups from settings", () => {
+    const commercial = defaultCommercialConfig();
+    commercial.laborOps = commercial.laborOps.map((op) =>
+      op.id === "simple-assembly"
+        ? { ...op, enabled: true, qty: 1, tariff: 50 }
+        : op,
+    );
+    const quote = quoteConfigurator({
+      state: state({ commercial }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.laborCost, 50);
+    assert.equal(quote.calculation?.totalProductionCost, 360 + 50);
+    assert.equal(quote.calculation?.wholesalePrice, (360 + 50) * 1.3);
+    assert.equal(quote.calculation?.retailPrice, (360 + 50) * 1.7);
+    assert.equal(quote.calculation?.financial?.labor, 50);
+    assert.equal(quote.calculation?.status, "COMPLETE");
+  });
+
+  it("services stay separate without auto markup on delivery/install", () => {
+    const commercial = defaultCommercialConfig();
+    commercial.deliveryType = "chisinau";
+    commercial.deliveryTariff = 80;
+    commercial.installType = "mirror";
+    commercial.installQty = 1;
+    commercial.installTariff = 120;
+    const quote = quoteConfigurator({
+      state: state({ commercial }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.totalProductionCost, 360);
+    assert.equal(quote.calculation?.wholesalePrice, 360 * 1.3);
+    assert.equal(quote.calculation?.serviceCosts, 80 + 120);
+    assert.equal(quote.calculation?.financial?.services.delivery, 80);
+    assert.equal(quote.calculation?.financial?.services.install, 120);
+    assert.equal(quote.calculation?.financial?.offerRetail, 360 * 1.7 + 200);
+    // Markup not applied to services: offer ≠ retail of (360+200)
+    assert.notEqual(
+      quote.calculation?.financial?.offerRetail,
+      (360 + 200) * 1.7,
+    );
+  });
+
+  it("config without extra services remains complete", () => {
+    const quote = quoteConfigurator({
+      state: state(),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "COMPLETE");
+    assert.equal(quote.calculation?.financial?.services.total, 0);
+    assert.equal(quote.calculation?.financial?.offerRetail, 360 * 1.7);
+  });
+
+  it("incomplete when required labor tariff missing", () => {
+    const commercial = defaultCommercialConfig();
+    commercial.laborOps = commercial.laborOps.map((op) =>
+      op.id === "front-led-mount"
+        ? { ...op, enabled: true, qty: 2.2, tariff: null }
+        : op,
+    );
+    const quote = quoteConfigurator({
+      state: state({ commercial }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "INCOMPLETE");
+    assert.equal(quote.calculation?.wholesalePrice, null);
+    assert.ok(
+      quote.blockers.some((item) => item.includes("tarif admin neconfigurat")),
+    );
+  });
+
+  it("does not double-charge labor vs LED component", () => {
+    const lighting = defaultLightingConfig();
+    lighting.lightingType = "front";
+    lighting.front.positioning = "two_height";
+    const commercial = defaultCommercialConfig();
+    commercial.laborOps = commercial.laborOps.map((op) =>
+      op.id === "front-led-mount"
+        ? { ...op, enabled: true, qty: 2.2, tariff: 10 }
+        : op,
+    );
+    const quote = quoteConfigurator({
+      state: state({ lighting, commercial }),
+      materials,
+      rules,
+    });
+    // LED material 88 + labor mount 22 — distinct lines
+    assert.equal(quote.calculation?.electrical?.frontLed, 88);
+    assert.equal(quote.calculation?.laborCost, 22);
+    assert.equal(quote.calculation?.totalProductionCost, 360 + 88 + 22);
+  });
+
+  it("included packaging in sinecost; extra packaging as service", () => {
+    const included = defaultCommercialConfig();
+    included.packagingType = "standard";
+    included.packagingRole = "included";
+    included.packagingQty = 1;
+    included.packagingTariff = 25;
+    const quoteIn = quoteConfigurator({
+      state: state({ commercial: included }),
+      materials,
+      rules,
+    });
+    assert.equal(quoteIn.calculation?.packagingIncludedCost, 25);
+    assert.equal(quoteIn.calculation?.totalProductionCost, 360 + 25);
+    assert.equal(quoteIn.calculation?.serviceCosts ?? 0, 0);
+
+    const extra = defaultCommercialConfig();
+    extra.packagingType = "wood-osb";
+    extra.packagingRole = "extra";
+    extra.packagingQty = 1;
+    extra.packagingTariff = 40;
+    const quoteEx = quoteConfigurator({
+      state: state({ commercial: extra }),
+      materials,
+      rules,
+    });
+    assert.equal(quoteEx.calculation?.totalProductionCost, 360);
+    assert.equal(quoteEx.calculation?.financial?.services.packagingExtra, 40);
+  });
+
+  it("compatibility with Stage 5.1–5.3 glass/LED/sandblast", () => {
+    const lighting = defaultLightingConfig();
+    lighting.lightingType = "front";
+    lighting.front.positioning = "perimeter";
+    const processing = defaultProcessingConfig();
+    processing.sandblastFinish = "standard";
+    processing.sandblastAreaM2 = 0.2;
+    const commercial = defaultCommercialConfig();
+    commercial.deliveryType = "chisinau";
+    commercial.deliveryTariff = 50;
+    const quote = quoteConfigurator({
+      state: state({ lighting, processing, commercial }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.glassCost, 360);
+    assert.equal(quote.ledSystems[0]?.length?.totalLengthM, 3.52);
+    assert.equal(quote.calculation?.electrical?.frontLed, 140.8);
+    assert.equal(quote.calculation?.operationCosts, 120);
+    assert.equal(
+      quote.calculation?.totalProductionCost,
+      360 + 140.8 + 120,
+    );
+    assert.equal(quote.calculation?.financial?.services.delivery, 50);
     assert.equal(quote.calculation?.status, "COMPLETE");
   });
 });

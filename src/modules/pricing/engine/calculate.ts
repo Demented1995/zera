@@ -7,8 +7,11 @@ import {
   type CalculationInput,
   type CalculationResult,
   type CatalogMaterial,
+  type CommercialServicesBreakdown,
   type CostLine,
   type DetailedComponentLine,
+  type FinancialSummary,
+  type ServiceLine,
 } from "@/modules/pricing/engine/types";
 
 function findMaterial(
@@ -442,12 +445,62 @@ export function calculateMirrorPricing(
     }
   }
 
-  // --- Labor (optional, only if configured) ---
+  // --- Labor (production — enters sinecost) ---
+  // Prefer detailed laborLines; fall back to simple laborCost for calculator compat.
+  const laborAmounts: Array<number | null> = [];
+  const hasLaborLines = (input.laborLines?.length ?? 0) > 0;
+
+  if (hasLaborLines) {
+    for (const labor of input.laborLines!) {
+      if (labor.quantity === 0 && !labor.required) {
+        continue;
+      }
+      if (labor.quantity < 0 || !Number.isFinite(labor.quantity)) {
+        missingCosts.push(`${labor.label}: cantitate invalidă`);
+        laborAmounts.push(null);
+        continue;
+      }
+      if (labor.unitPrice === null || !Number.isFinite(labor.unitPrice)) {
+        if (labor.required || labor.quantity > 0) {
+          const reason = `${labor.label}: tarif neconfigurat`;
+          missingCosts.push(reason);
+          laborAmounts.push(null);
+          lines.push({
+            kind: "LABOR",
+            key: labor.key,
+            label: labor.label,
+            quantity: labor.quantity,
+            unit: labor.unit,
+            unitPrice: null,
+            amount: null,
+            note: labor.note,
+            incompleteReason: reason,
+          });
+        }
+        continue;
+      }
+      if (labor.quantity === 0) {
+        continue;
+      }
+      const amount = roundMoney(labor.quantity * labor.unitPrice);
+      laborAmounts.push(amount);
+      lines.push({
+        kind: "LABOR",
+        key: labor.key,
+        label: labor.label,
+        quantity: labor.quantity,
+        unit: labor.unit,
+        unitPrice: labor.unitPrice,
+        amount,
+        note: labor.note,
+      });
+    }
+  }
+
   let laborCost: number | null = null;
-  if (input.laborCost === null) {
-    // explicitly null = not configured → omit from production total without blocking
-    laborCost = null;
-  } else if (input.laborCost === undefined) {
+  if (hasLaborLines) {
+    laborCost = laborAmounts.length === 0 ? 0 : sumNullable(laborAmounts);
+  } else if (input.laborCost === null || input.laborCost === undefined) {
     laborCost = null;
   } else if (!Number.isFinite(input.laborCost) || input.laborCost < 0) {
     missingCosts.push("Manoperă: valoare invalidă");
@@ -465,15 +518,131 @@ export function calculateMirrorPricing(
     });
   }
 
+  // --- Included packaging (F — sinecost) ---
+  const packagingAmounts: Array<number | null> = [];
+  for (const pack of input.packagingIncludedLines ?? []) {
+    if (pack.quantity === 0 && !pack.required) {
+      continue;
+    }
+    if (pack.unitPrice === null || !Number.isFinite(pack.unitPrice)) {
+      if (pack.required || pack.quantity > 0) {
+        const reason = `${pack.label}: tarif / regulă neconfigurată`;
+        missingCosts.push(reason);
+        packagingAmounts.push(null);
+        lines.push({
+          kind: "COMPONENT",
+          key: pack.key,
+          label: pack.label,
+          quantity: pack.quantity,
+          unit: pack.unit,
+          unitPrice: null,
+          amount: null,
+          note: pack.note,
+          incompleteReason: reason,
+        });
+      }
+      continue;
+    }
+    if (pack.quantity <= 0) {
+      if (pack.required) {
+        missingCosts.push(`${pack.label}: cantitate de confirmat`);
+        packagingAmounts.push(null);
+      }
+      continue;
+    }
+    const amount = roundMoney(pack.quantity * pack.unitPrice);
+    packagingAmounts.push(amount);
+    lines.push({
+      kind: "COMPONENT",
+      key: pack.key,
+      label: pack.label,
+      quantity: pack.quantity,
+      unit: pack.unit,
+      unitPrice: pack.unitPrice,
+      amount,
+      note: pack.note,
+    });
+  }
+  const packagingIncludedCost =
+    (input.packagingIncludedLines?.length ?? 0) === 0
+      ? 0
+      : sumNullable(packagingAmounts);
+
   // --- Services (excluded from markups) ---
+  const serviceBuckets: Record<
+    "packagingExtra" | "delivery" | "install" | "other",
+    Array<number | null>
+  > = {
+    packagingExtra: [],
+    delivery: [],
+    install: [],
+    other: [],
+  };
+  const hasServiceLines = (input.serviceLines?.length ?? 0) > 0;
+  const serviceAmounts: Array<number | null> = [];
+
+  if (hasServiceLines) {
+    for (const service of input.serviceLines!) {
+      if (service.quantity === 0 && !service.required) {
+        continue;
+      }
+      if (service.unitPrice === null || !Number.isFinite(service.unitPrice)) {
+        if (service.required || service.quantity > 0) {
+          const reason = `${service.label}: tarif neconfigurat`;
+          missingCosts.push(reason);
+          serviceAmounts.push(null);
+          serviceBuckets[serviceGroupKey(service.group)].push(null);
+          lines.push({
+            kind: "SERVICE",
+            key: service.key,
+            label: service.label,
+            quantity: service.quantity,
+            unit: service.unit,
+            unitPrice: null,
+            amount: null,
+            note: service.note,
+            incompleteReason: reason,
+          });
+        }
+        continue;
+      }
+      if (service.quantity <= 0) {
+        if (service.required) {
+          missingCosts.push(`${service.label}: cantitate invalidă`);
+          serviceAmounts.push(null);
+          serviceBuckets[serviceGroupKey(service.group)].push(null);
+        }
+        continue;
+      }
+      const amount = roundMoney(service.quantity * service.unitPrice);
+      serviceAmounts.push(amount);
+      serviceBuckets[serviceGroupKey(service.group)].push(amount);
+      lines.push({
+        kind: "SERVICE",
+        key: service.key,
+        label: service.label,
+        quantity: service.quantity,
+        unit: service.unit,
+        unitPrice: service.unitPrice,
+        amount,
+        note:
+          service.note ??
+          "Nu se aplică adaos en-gros / retail automat pe servicii.",
+      });
+    }
+  }
+
   let serviceCosts: number | null = null;
-  if (
+  if (hasServiceLines) {
+    serviceCosts = serviceAmounts.length === 0 ? 0 : sumNullable(serviceAmounts);
+  } else if (
     input.serviceCosts !== undefined &&
     input.serviceCosts !== null &&
     Number.isFinite(input.serviceCosts) &&
     input.serviceCosts >= 0
   ) {
     serviceCosts = roundMoney(input.serviceCosts);
+    serviceBuckets.other.push(serviceCosts);
     lines.push({
       kind: "SERVICE",
       key: "services",
@@ -494,6 +663,12 @@ export function calculateMirrorPricing(
   if (laborCost !== null) {
     productionParts.push(laborCost);
   }
+  if (
+    (input.packagingIncludedLines?.length ?? 0) > 0 ||
+    packagingIncludedCost !== 0
+  ) {
+    productionParts.push(packagingIncludedCost);
+  }
 
   const totalProductionCost = sumNullable(productionParts);
 
@@ -509,11 +684,6 @@ export function calculateMirrorPricing(
       totalProductionCost,
       input.rules.retailMarkupPercent,
     );
-  } else {
-    // Markups cannot be computed without a complete production cost
-    if (!missingCosts.some((m) => m.includes("adaos") || m.includes("Cost total"))) {
-      // keep missing list focused on material gaps already collected
-    }
   }
 
   const processing = {
@@ -540,6 +710,58 @@ export function calculateMirrorPricing(
     processing.branding,
   ]);
 
+  // Financial summary A–F (product) + separate services
+  const ledCost = electrical.total;
+  const processingOps = sumNullable([
+    processing.sandblast,
+    processing.facets,
+    processing.engraving,
+    processing.defog,
+    processing.frames,
+    processing.mounting,
+    processing.cutouts,
+  ]);
+  const accessoriesCost = sumNullable([
+    processing.accessories,
+    processing.branding,
+  ]);
+
+  // No commercial services selected → 0 (does not block offer total).
+  // Selected services with missing tariffs → null (incomplete).
+  const servicesTotal: number | null =
+    hasServiceLines || (serviceCosts !== null && serviceCosts !== undefined)
+      ? (serviceCosts ?? null)
+      : 0;
+
+  const services: CommercialServicesBreakdown = {
+    packagingExtra: sumBucket(serviceBuckets.packagingExtra),
+    delivery: sumBucket(serviceBuckets.delivery),
+    install: sumBucket(serviceBuckets.install),
+    other: sumBucket(serviceBuckets.other),
+    total: servicesTotal,
+  };
+
+  const financial: FinancialSummary = {
+    glass: glassCost,
+    led: ledCost,
+    processing: processingOps,
+    accessories: accessoriesCost,
+    labor: hasLaborLines || laborCost !== null ? laborCost : 0,
+    packagingIncluded: packagingIncludedCost,
+    sinecost: totalProductionCost,
+    wholesalePrice,
+    retailPrice,
+    services,
+    offerWholesale:
+      wholesalePrice !== null && servicesTotal !== null
+        ? roundMoney(wholesalePrice + servicesTotal)
+        : null,
+    offerRetail:
+      retailPrice !== null && servicesTotal !== null
+        ? roundMoney(retailPrice + servicesTotal)
+        : null,
+  };
+
   const status = missingCosts.length === 0 ? "COMPLETE" : "INCOMPLETE";
 
   return {
@@ -548,6 +770,7 @@ export function calculateMirrorPricing(
     componentCosts: componentCosts ?? (componentAmounts.length === 0 ? 0 : null),
     operationCosts,
     laborCost,
+    packagingIncludedCost,
     totalProductionCost,
     serviceCosts,
     wholesalePrice,
@@ -556,6 +779,7 @@ export function calculateMirrorPricing(
     lines,
     electrical,
     processing,
+    financial,
     meta: {
       calcWidthMm: glassArea.calcWidthMm,
       calcHeightMm: glassArea.calcHeightMm,
@@ -564,6 +788,25 @@ export function calculateMirrorPricing(
       sandblastAreaM2: sandblastArea,
     },
   };
+}
+
+function serviceGroupKey(
+  group: ServiceLine["group"],
+): "packagingExtra" | "delivery" | "install" | "other" {
+  switch (group) {
+    case "packaging-extra":
+      return "packagingExtra";
+    case "delivery":
+      return "delivery";
+    case "install":
+      return "install";
+    case "other":
+      return "other";
+    default: {
+      const _exhaustive: never = group;
+      return _exhaustive;
+    }
+  }
 }
 
 type ElectricalBucketKey =
@@ -658,6 +901,7 @@ function incompleteShell(
     componentCosts: null,
     operationCosts: null,
     laborCost: null,
+    packagingIncludedCost: null,
     totalProductionCost: null,
     serviceCosts: null,
     wholesalePrice: null,
@@ -683,6 +927,26 @@ function incompleteShell(
       accessories: null,
       branding: null,
       total: null,
+    },
+    financial: {
+      glass: null,
+      led: null,
+      processing: null,
+      accessories: null,
+      labor: null,
+      packagingIncluded: null,
+      sinecost: null,
+      wholesalePrice: null,
+      retailPrice: null,
+      services: {
+        packagingExtra: null,
+        delivery: null,
+        install: null,
+        other: null,
+        total: null,
+      },
+      offerWholesale: null,
+      offerRetail: null,
     },
     meta: {
       calcWidthMm: null,

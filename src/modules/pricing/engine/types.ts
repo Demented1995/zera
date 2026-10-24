@@ -92,6 +92,35 @@ export type ProcessingCostBreakdown = {
   total: number | null;
 };
 
+/**
+ * Explicit production labor line (Stage 5.4).
+ * Enters sinecost; tariffs come from admin config — never invented.
+ */
+export type LaborLine = {
+  key: string;
+  label: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number | null;
+  required?: boolean;
+  note?: string;
+};
+
+/**
+ * Commercial service line (extra packaging / delivery / install).
+ * Excluded from wholesale/retail markups.
+ */
+export type ServiceLine = {
+  key: string;
+  label: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number | null;
+  group: "packaging-extra" | "delivery" | "install" | "other";
+  required?: boolean;
+  note?: string;
+};
+
 export type CalculationInput = {
   widthMm: number;
   heightMm: number;
@@ -116,13 +145,28 @@ export type CalculationInput = {
    */
   decorativeSandblastAreaM2: number;
   /**
-   * Optional labor cost already configured elsewhere.
+   * Detailed production labor lines (preferred for Stage 5.4).
+   * When present, replaces simple laborCost aggregation.
+   */
+  laborLines?: LaborLine[];
+  /**
+   * Packaging required by the product — enters sinecost (F).
+   */
+  packagingIncludedLines?: LaborLine[];
+  /**
+   * Optional labor cost already configured elsewhere (legacy / calculator).
    * Null/undefined = not configured (not treated as 0).
+   * Ignored when laborLines is non-empty.
    */
   laborCost?: number | null;
   /**
+   * Detailed commercial services (preferred). Excluded from markups.
+   */
+  serviceLines?: ServiceLine[];
+  /**
    * Delivery/install/commercial services — tracked separately;
    * markups are NOT auto-applied to these.
+   * Ignored when serviceLines is non-empty.
    */
   serviceCosts?: number | null;
   materials: CatalogMaterial[];
@@ -159,12 +203,46 @@ export type ElectricalCostBreakdown = {
   total: number | null;
 };
 
+/**
+ * Commercial services excluded from product markups (Stage 5.4).
+ */
+export type CommercialServicesBreakdown = {
+  packagingExtra: number | null;
+  delivery: number | null;
+  install: number | null;
+  other: number | null;
+  total: number | null;
+};
+
+/**
+ * Product financial summary A–F → sinecost; services separate.
+ * A glass, B LED/electric, C processing (ops), D accessories/branding,
+ * E production labor, F included packaging.
+ */
+export type FinancialSummary = {
+  glass: number | null;
+  led: number | null;
+  processing: number | null;
+  accessories: number | null;
+  labor: number | null;
+  packagingIncluded: number | null;
+  /** A+…+F — subject to wholesale/retail markups. */
+  sinecost: number | null;
+  wholesalePrice: number | null;
+  retailPrice: number | null;
+  services: CommercialServicesBreakdown;
+  /** Selected product price (wholesale or retail) + services — set by configurator. */
+  offerWholesale: number | null;
+  offerRetail: number | null;
+};
+
 export type CalculationResult = {
   status: CalculationStatus;
   glassCost: number | null;
   componentCosts: number | null;
   operationCosts: number | null;
   laborCost: number | null;
+  packagingIncludedCost?: number | null;
   /** Production cost subject to wholesale/retail markups. */
   totalProductionCost: number | null;
   /** Services excluded from markups. */
@@ -175,6 +253,7 @@ export type CalculationResult = {
   lines: CostLine[];
   electrical?: ElectricalCostBreakdown;
   processing?: ProcessingCostBreakdown;
+  financial?: FinancialSummary;
   meta: {
     calcWidthMm: number | null;
     calcHeightMm: number | null;
