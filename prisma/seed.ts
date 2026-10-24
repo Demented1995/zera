@@ -218,6 +218,41 @@ async function main() {
   await seedCategories();
   await seedMaterials();
   await seedPricingSettings();
+  await seedMirrorModelCategories();
+}
+
+const MIRROR_MODEL_CATEGORIES: Array<{
+  name: string;
+  slug: string;
+  sortOrder: number;
+}> = [
+  { name: "Oglinzi LED", slug: "oglinzi-led", sortOrder: 10 },
+  { name: "Oglinzi fără LED", slug: "oglinzi-fara-led", sortOrder: 20 },
+  { name: "Oglinzi de machiaj", slug: "oglinzi-de-machiaj", sortOrder: 30 },
+  { name: "Oglinzi decorative", slug: "oglinzi-decorative", sortOrder: 40 },
+  { name: "Oglinzi personalizate", slug: "oglinzi-personalizate", sortOrder: 50 },
+];
+
+async function seedMirrorModelCategories() {
+  for (const category of MIRROR_MODEL_CATEGORIES) {
+    await prisma.mirrorModelCategory.upsert({
+      where: { slug: category.slug },
+      update: {
+        name: category.name,
+        sortOrder: category.sortOrder,
+        isActive: true,
+      },
+      create: {
+        name: category.name,
+        slug: category.slug,
+        sortOrder: category.sortOrder,
+        isActive: true,
+      },
+    });
+  }
+  console.log(
+    `Seeded ${MIRROR_MODEL_CATEGORIES.length} commercial mirror model categories`,
+  );
 }
 
 async function seedPricingSettings() {

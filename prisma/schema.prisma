@@ -28,6 +28,9 @@ model User {
   offersCreated           CustomerOffer[]        @relation("OfferCreatedBy")
   offersUpdated           CustomerOffer[]        @relation("OfferUpdatedBy")
   offerRevisionsIssued    OfferRevision[]        @relation("RevisionIssuedBy")
+  mirrorModelsCreated     MirrorModel[]          @relation("MirrorModelCreatedBy")
+  mirrorModelsUpdated     MirrorModel[]          @relation("MirrorModelUpdatedBy")
+  mirrorCategoriesCreated MirrorModelCategory[]  @relation("MirrorCategoryCreatedBy")
 }
 
 enum ConfigStatus {
@@ -71,6 +74,7 @@ model SavedConfiguration {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   offers           CustomerOffer[]
+  derivedModels    MirrorModel[]
 
   @@index([status])
   @@index([updatedAt])
@@ -86,6 +90,9 @@ model CustomerOffer {
   status               OfferStatus        @default(DRAFT)
   configurationId      String?
   configuration        SavedConfiguration? @relation(fields: [configurationId], references: [id])
+  /// Optional link to a commercial catalog model (Stage 6.1+). Issued prices stay in revisions.
+  mirrorModelId        String?
+  mirrorModel          MirrorModel?        @relation(fields: [mirrorModelId], references: [id])
   clientName           String
   clientPhone          String
   clientEmail          String?
@@ -151,6 +158,84 @@ model CompanySettings {
   bankDetails String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// Commercial lifecycle for catalog mirror models (not the same as calculation completeness).
+enum MirrorModelStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+/// Commercial product categories (distinct from Stage 3 material categories).
+model MirrorModelCategory {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  slug        String        @unique
+  description String?
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdById String?
+  createdBy   User?         @relation("MirrorCategoryCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  models      MirrorModel[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// Commercial mirror model — predefined product priced via the central configurator engine.
+/// Not a client saved configuration. Soft-archive only; never hard-delete commercial history.
+model MirrorModel {
+  id                String            @id @default(cuid())
+  /// Human-readable unique code, e.g. MOD-2026-0001
+  code              String            @unique
+  name              String
+  /// Unique public URL slug (future shop). Validated unique on write.
+  slug              String            @unique
+  shortDescription  String?
+  fullDescription   String?
+  categoryId        String
+  category          MirrorModelCategory @relation(fields: [categoryId], references: [id])
+  status            MirrorModelStatus @default(DRAFT)
+  /// Future public-site publish flag — independent of ACTIVE commercial status.
+  isPublished       Boolean           @default(false)
+  /// Full ConfiguratorState (shape, LED, processing, commercial).
+  configJson        Json
+  /// Last central-engine calculation (may be incomplete).
+  calculationJson   Json?
+  /// Calculation completeness (reuses ConfigStatus semantics).
+  calcStatus        ConfigStatus      @default(DRAFT)
+  shapeId           String
+  shapeLabel        String
+  glassTypeId       String
+  defaultWidthMm    Decimal           @db.Decimal(12, 2)
+  defaultHeightMm   Decimal           @db.Decimal(12, 2)
+  /// Prepared for Stage 6.2 dimension limits — unused commercially in 6.1 (always null).
+  minWidthMm        Decimal?          @db.Decimal(12, 2)
+  maxWidthMm        Decimal?          @db.Decimal(12, 2)
+  minHeightMm       Decimal?          @db.Decimal(12, 2)
+  maxHeightMm       Decimal?          @db.Decimal(12, 2)
+  sinecost          Decimal?          @db.Decimal(12, 2)
+  wholesalePrice    Decimal?          @db.Decimal(12, 2)
+  retailPrice       Decimal?          @db.Decimal(12, 2)
+  /// Optional origin: created from a professional saved configuration.
+  sourceConfigurationId String?
+  sourceConfiguration   SavedConfiguration? @relation(fields: [sourceConfigurationId], references: [id])
+  createdById       String
+  createdBy         User              @relation("MirrorModelCreatedBy", fields: [createdById], references: [id])
+  updatedById       String
+  updatedBy         User              @relation("MirrorModelUpdatedBy", fields: [updatedById], references: [id])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  offers            CustomerOffer[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([updatedAt])
+  @@index([name])
+  @@index([slug])
+  @@index([isPublished])
 }
 
 /// Categories for materials, components, and operations (e.g. Manoperă).
