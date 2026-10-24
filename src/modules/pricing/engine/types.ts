@@ -40,6 +40,31 @@ export type ComponentQuantities = {
   touchPcs: number;
 };
 
+/**
+ * Detailed electrical / accessory lines from the configurator (Stage 5.2+).
+ * When present, these are priced in addition to (or instead of) the simple
+ * aggregated `components.ledMeters` for LED — set ledMeters to 0 if using
+ * detailed LED lines to avoid double counting.
+ */
+export type DetailedComponentLine = {
+  key: string;
+  label: string;
+  /** Catalog seed key; null means unpriced / unconfigured. */
+  seedKey: string | null;
+  quantity: number;
+  unit: string;
+  group:
+    | "led-front"
+    | "led-back"
+    | "switch"
+    | "transformer"
+    | "accessory"
+    | "other";
+  note?: string;
+  /** When true and unpriced, marks calculation INCOMPLETE. */
+  required?: boolean;
+};
+
 export type CalculationInput = {
   widthMm: number;
   heightMm: number;
@@ -57,6 +82,7 @@ export type CalculationInput = {
    */
   explicitCurvedEdgeAddsMm?: CurvedEdgeAddsMm;
   components: ComponentQuantities;
+  detailedComponents?: DetailedComponentLine[];
   /**
    * Decorative sandblast area in m² (separate from touch-symbol sandblast).
    * One minimum charge applies per decorative sandblast operation, not per band.
@@ -97,6 +123,15 @@ export type CostLine = {
 
 export type CalculationStatus = "COMPLETE" | "INCOMPLETE";
 
+export type ElectricalCostBreakdown = {
+  frontLed: number | null;
+  backLed: number | null;
+  switches: number | null;
+  transformers: number | null;
+  accessories: number | null;
+  total: number | null;
+};
+
 export type CalculationResult = {
   status: CalculationStatus;
   glassCost: number | null;
@@ -111,6 +146,7 @@ export type CalculationResult = {
   retailPrice: number | null;
   missingCosts: string[];
   lines: CostLine[];
+  electrical?: ElectricalCostBreakdown;
   meta: {
     calcWidthMm: number | null;
     calcHeightMm: number | null;

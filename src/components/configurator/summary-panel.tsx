@@ -9,6 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  LIGHTING_TYPES,
+  lightingUsesBack,
+  lightingUsesFront,
+} from "@/modules/configurator/lighting";
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
 import { roundMoney } from "@/modules/pricing/engine";
 
@@ -31,6 +36,7 @@ export function SummaryPanel({
   pending,
 }: SummaryPanelProps) {
   const calc = quote?.calculation ?? null;
+  const electrical = calc?.electrical;
   const status = validationMessage
     ? "INVALID"
     : !quote
@@ -39,14 +45,18 @@ export function SummaryPanel({
         ? calc.status
         : "INCOMPLETE";
 
+  const lightingLabel =
+    LIGHTING_TYPES.find((item) => item.id === quote?.lighting.lightingType)
+      ?.label ?? "—";
+
   return (
     <aside className="space-y-4 rounded-xl border border-border bg-card p-5 lg:sticky lg:top-20">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Sumar</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Cost sticlă pe regulile confirmate. Nu reprezintă încă o oglindă
-            echipată complet (LED, accesorii — Stage 5.2+).
+            Cost sticlă + electric / LED pe regulile confirmate. Sinecost
+            complet doar când toate costurile necesare sunt disponibile.
           </p>
         </div>
         <StatusBadge status={status} pending={pending} />
@@ -66,6 +76,7 @@ export function SummaryPanel({
             label="Dimensiuni"
             value={`${quote.widthMm} × ${quote.heightMm} mm`}
           />
+          <Row label="Iluminare" value={lightingLabel} />
           <Row
             label="Arie calcul"
             value={
@@ -81,6 +92,74 @@ export function SummaryPanel({
             />
           ) : null}
           <Row label="Cost sticlă" value={money(calc?.glassCost)} />
+        </dl>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Completați forma și dimensiunile pentru a vedea sumarul.
+        </p>
+      )}
+
+      {quote && quote.ledSystems.length > 0 ? (
+        <div className="space-y-2 rounded-lg border border-border px-3 py-2 text-sm">
+          <p className="font-medium text-foreground">Lungimi LED</p>
+          {quote.ledSystems.map((system) => {
+            const sideLabel = system.side === "front" ? "Față" : "Spate";
+            return (
+              <div
+                key={system.side}
+                className={
+                  system.overrideHighlight
+                    ? "rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1.5"
+                    : "rounded-md border border-border/60 px-2 py-1.5"
+                }
+              >
+                <p className="font-medium">
+                  {sideLabel}
+                  {system.overrideHighlight ? " · OVERRIDE" : ""}
+                </p>
+                {system.lengthError ? (
+                  <p className="text-xs text-muted-foreground">
+                    {system.lengthError}
+                  </p>
+                ) : system.length ? (
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    <li>Bază: {system.length.baseLengthM.toFixed(2)} m</li>
+                    <li>
+                      Supliment 10%: {system.length.supplementM.toFixed(2)} m
+                    </li>
+                    <li>
+                      Total: {system.length.totalLengthM.toFixed(2)} m ·{" "}
+                      {system.temperatureK}K
+                    </li>
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {electrical &&
+      (lightingUsesFront(quote?.lighting.lightingType ?? "none") ||
+        lightingUsesBack(quote?.lighting.lightingType ?? "none") ||
+        (quote?.lighting.switches.length ?? 0) > 0 ||
+        (quote?.lighting.transformerPcs ?? 0) > 0) ? (
+        <dl className="grid gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+          <p className="font-medium text-foreground">Electric / LED</p>
+          <Row label="LED față" value={money(electrical.frontLed)} />
+          <Row label="LED spate" value={money(electrical.backLed)} />
+          <Row label="Întrerupătoare" value={money(electrical.switches)} />
+          <Row label="Transformatoare" value={money(electrical.transformers)} />
+          <Row
+            label="Profile / accesorii"
+            value={money(electrical.accessories)}
+          />
+          <Row label="Total electric" value={money(electrical.total)} />
+        </dl>
+      ) : null}
+
+      {quote ? (
+        <dl className="grid gap-2 text-sm">
           <Row
             label="Sinecost producție"
             value={money(calc?.totalProductionCost)}
@@ -88,11 +167,7 @@ export function SummaryPanel({
           <Row label="En-gros" value={money(calc?.wholesalePrice)} />
           <Row label="Retail" value={money(calc?.retailPrice)} />
         </dl>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Completați forma și dimensiunile pentru a vedea sumarul.
-        </p>
-      )}
+      ) : null}
 
       {quote && quote.blockers.length > 0 ? (
         <div className="rounded-lg border border-border px-3 py-2 text-sm">

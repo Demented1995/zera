@@ -163,6 +163,9 @@ describe("components", () => {
       (line) => line.key === MATERIAL_SEED_KEYS.touch,
     );
     assert.ok(touchLine?.note?.includes("simbolului"));
+    assert.equal(result.electrical?.frontLed, 100);
+    assert.equal(result.electrical?.transformers, 100);
+    assert.equal(result.electrical?.switches, 200);
   });
 
   it("does not invent component lines when qty is 0", () => {
@@ -170,6 +173,62 @@ describe("components", () => {
     assert.equal(
       result.lines.some((line) => line.key === MATERIAL_SEED_KEYS.led),
       false,
+    );
+    assert.equal(result.electrical?.total, 0);
+  });
+
+  it("prices detailed front/back LED lines independently", () => {
+    const result = calculateMirrorPricing(
+      baseInput({
+        components: { ledMeters: 0, transformerPcs: 0, touchPcs: 0 },
+        detailedComponents: [
+          {
+            key: "led-front",
+            label: "Bandă LED față",
+            seedKey: MATERIAL_SEED_KEYS.led,
+            quantity: 2.2,
+            unit: "metru",
+            group: "led-front",
+            required: true,
+          },
+          {
+            key: "led-back",
+            label: "Bandă LED spate",
+            seedKey: MATERIAL_SEED_KEYS.led,
+            quantity: 1.32,
+            unit: "metru",
+            group: "led-back",
+            required: true,
+          },
+        ],
+      }),
+    );
+    assert.equal(result.electrical?.frontLed, 88);
+    assert.equal(result.electrical?.backLed, 52.8);
+    assert.equal(result.electrical?.total, 140.8);
+  });
+
+  it("marks unpriced required detailed component incomplete", () => {
+    const result = calculateMirrorPricing(
+      baseInput({
+        detailedComponents: [
+          {
+            key: "mounting-profile",
+            label: "Profil de montaj",
+            seedKey: null,
+            quantity: 1,
+            unit: "bucată",
+            group: "accessory",
+            required: true,
+          },
+        ],
+      }),
+    );
+    assert.equal(result.status, "INCOMPLETE");
+    assert.ok(
+      result.missingCosts.some((item) =>
+        item.includes("Preț neconfigurat"),
+      ),
     );
   });
 });
