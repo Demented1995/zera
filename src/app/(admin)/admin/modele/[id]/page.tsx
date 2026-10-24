@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ModelForm } from "@/components/catalog/model-form";
@@ -70,13 +71,19 @@ export default async function ModelEditPage({ params }: PageProps) {
         title={model.name}
         description="Editarea modelului nu alterează ofertele emise — snapshot-urile comerciale rămân imutabile."
       />
-      <div className="flex flex-wrap gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge variant="outline">{MODEL_STATUS_LABEL[model.status]}</Badge>
         <Badge variant="outline">{CALC_STATUS_LABEL[model.calcStatus]}</Badge>
         <span className="text-muted-foreground">
           {model._count.offers} oferte legate · publicat pe site:{" "}
           {model.isPublished ? "da" : "nu"}
         </span>
+        <Link
+          href={`/admin/modele/${model.id}/previzualizare`}
+          className="underline-offset-2 hover:underline"
+        >
+          Previzualizează ca client
+        </Link>
       </div>
       <ModelForm
         categories={categoryOptions}

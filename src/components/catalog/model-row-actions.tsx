@@ -61,6 +61,12 @@ export function ModelRowActions({ id, status, canManage }: Props) {
         {canManage ? "Editează" : "Vezi"}
       </Link>
       <Link
+        href={`/admin/modele/${id}/previzualizare`}
+        className="text-sm underline-offset-2 hover:underline"
+      >
+        Previzualizează ca client
+      </Link>
+      <Link
         href={`/admin/configurator?modelId=${id}`}
         className="text-sm text-muted-foreground underline-offset-2 hover:underline"
       >
