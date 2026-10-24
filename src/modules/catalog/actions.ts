@@ -9,8 +9,18 @@ import { nextModelCode } from "@/modules/catalog/codes";
 import {
   canActivateModels,
   canManageCatalog,
+  canManageConfiguratorRules,
   canViewCatalog,
 } from "@/modules/catalog/permissions";
+import {
+  resolveConfiguratorRules,
+  validateCustomerConfig,
+  validateRulesConsistency,
+} from "@/modules/catalog/rules";
+import {
+  quoteCustomerConfigSchema,
+  saveConfiguratorRulesSchema,
+} from "@/modules/catalog/rules/schemas";
 import {
   archiveMirrorModelSchema,
   duplicateMirrorModelSchema,
@@ -22,6 +32,7 @@ import {
   assertCanActivate,
   deriveCalcStatus,
 } from "@/modules/catalog/status";
+import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { getShapeById } from "@/modules/configurator/shapes";
 import { recalculateFromConfigPayload } from "@/modules/offers/recalc";
 
@@ -216,11 +227,6 @@ export async function saveMirrorModelAction(
     glassTypeId: state.glassTypeId,
     defaultWidthMm: new Prisma.Decimal(state.widthMm),
     defaultHeightMm: new Prisma.Decimal(state.heightMm),
-    // Stage 6.2 placeholders — do not invent commercial limits.
-    minWidthMm: null,
-    maxWidthMm: null,
-    minHeightMm: null,
-    maxHeightMm: null,
     sinecost: decimalOrNull(calculation?.totalProductionCost ?? null),
     wholesalePrice: decimalOrNull(calculation?.wholesalePrice ?? null),
     retailPrice: decimalOrNull(calculation?.retailPrice ?? null),
@@ -236,6 +242,7 @@ export async function saveMirrorModelAction(
       return { ok: false, message: "Modelul nu a fost găsit." };
     }
 
+    // Preserve Stage 6.2 limits/rules — identity/tech save must not wipe them.
     // Editing a model never mutates issued offer revisions (prices live in OfferRevision).
     const updated = await prisma.mirrorModel.update({
       where: { id: data.id },
@@ -260,6 +267,15 @@ export async function saveMirrorModelAction(
     data: {
       ...rowData,
       code,
+      // New models: no limits until rules are configured (safe FIXED defaults).
+      minWidthMm: null,
+      maxWidthMm: null,
+      minHeightMm: null,
+      maxHeightMm: null,
+      stepWidthMm: null,
+      stepHeightMm: null,
+      configuratorRulesJson: undefined,
+      rulesVersion: 1,
       createdById: userId,
     },
   });
@@ -270,6 +286,144 @@ export async function saveMirrorModelAction(
     id: created.id,
     code: created.code,
     slug: created.slug,
+  };
+}
+
+export async function saveConfiguratorRulesAction(
+  raw: unknown,
+): Promise<ActionResult> {
+  const session = await requireStaffSession();
+  if (!canManageConfiguratorRules(session.user.role)) {
+    return {
+      ok: false,
+      message: "Nu aveți permisiunea de a modifica regulile configuratorului.",
+    };
+  }
+
+  const parsed = saveConfiguratorRulesSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "Verificați regulile configuratorului.",
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    };
+  }
+
+  const model = await prisma.mirrorModel.findUnique({
+    where: { id: parsed.data.modelId },
+  });
+  if (!model) {
+    return { ok: false, message: "Modelul nu a fost găsit." };
+  }
+
+  const rules = resolveConfiguratorRules(parsed.data.rules);
+  const consistency = validateRulesConsistency(rules, {
+    widthMm: Number(model.defaultWidthMm),
+    heightMm: Number(model.defaultHeightMm),
+  });
+  if (consistency.length > 0) {
+    return {
+      ok: false,
+      message: consistency.map((issue) => issue.message).join(" "),
+    };
+  }
+
+  // Rule changes never rewrite issued offers — only future customer configs use them.
+  const updated = await prisma.mirrorModel.update({
+    where: { id: model.id },
+    data: {
+      configuratorRulesJson: rules as unknown as Prisma.InputJsonValue,
+      rulesVersion: { increment: 1 },
+      minWidthMm: decimalOrNull(rules.dimensions.width.minMm ?? null),
+      maxWidthMm: decimalOrNull(rules.dimensions.width.maxMm ?? null),
+      minHeightMm: decimalOrNull(rules.dimensions.height.minMm ?? null),
+      maxHeightMm: decimalOrNull(rules.dimensions.height.maxMm ?? null),
+      stepWidthMm: decimalOrNull(rules.dimensions.width.stepMm ?? null),
+      stepHeightMm: decimalOrNull(rules.dimensions.height.stepMm ?? null),
+      updatedById: session.user.id,
+    },
+  });
+
+  revalidateCatalog();
+  revalidatePath(`/admin/modele/${updated.id}`);
+  return {
+    ok: true,
+    message: `Regulile au fost salvate (versiunea ${updated.rulesVersion}). Ofertele emise rămân neschimbate.`,
+    id: updated.id,
+  };
+}
+
+/**
+ * Validate a customer-style request against model rules and price via the central engine.
+ * Used by tests and future public shop — no client-imposed prices.
+ */
+export async function quoteModelWithRulesAction(raw: unknown): Promise<
+  | {
+      ok: true;
+      message: string;
+      applied: string[];
+      rejected: Array<{ code: string; message: string }>;
+      prices: {
+        sinecost: number | null;
+        wholesale: number | null;
+        retail: number | null;
+        status: string;
+      };
+    }
+  | { ok: false; message: string; rejected?: Array<{ code: string; message: string }> }
+> {
+  const session = await requireStaffSession();
+  if (!canViewCatalog(session.user.role)) {
+    return { ok: false, message: "Acces interzis." };
+  }
+
+  const parsed = quoteCustomerConfigSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, message: "Cerere invalidă." };
+  }
+
+  const model = await prisma.mirrorModel.findUnique({
+    where: { id: parsed.data.modelId },
+  });
+  if (!model) {
+    return { ok: false, message: "Modelul nu a fost găsit." };
+  }
+
+  const validated = validateCustomerConfig({
+    modelDefault: model.configJson as unknown as ConfiguratorState,
+    rules: model.configuratorRulesJson,
+    request: parsed.data.request,
+  });
+
+  if (!validated.ok) {
+    return {
+      ok: false,
+      message: "Configurația solicitată a fost respinsă de regulile modelului.",
+      rejected: validated.rejected.map((issue) => ({
+        code: issue.code,
+        message: issue.message,
+      })),
+    };
+  }
+
+  const { calculation } = await recalculateFromConfigPayload(
+    validated.config as unknown as Record<string, unknown>,
+  );
+
+  return {
+    ok: true,
+    message: "Configurație validată și recalculată prin motorul central.",
+    applied: validated.applied,
+    rejected: validated.rejected.map((issue) => ({
+      code: issue.code,
+      message: issue.message,
+    })),
+    prices: {
+      sinecost: calculation?.totalProductionCost ?? null,
+      wholesale: calculation?.wholesalePrice ?? null,
+      retail: calculation?.retailPrice ?? null,
+      status: calculation?.status ?? "INCOMPLETE",
+    },
   };
 }
 

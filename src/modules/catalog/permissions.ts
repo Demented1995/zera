@@ -14,3 +14,13 @@ export function canViewCatalog(role: Role): boolean {
 export function canActivateModels(role: Role): boolean {
   return role === "ADMIN";
 }
+
+/** ADMIN may create/edit configurator rules, limits, and allowed options. */
+export function canManageConfiguratorRules(role: Role): boolean {
+  return role === "ADMIN";
+}
+
+/** MANAGER may view rules but cannot change commercial rule structure. */
+export function canViewConfiguratorRules(role: Role): boolean {
+  return role === "ADMIN" || role === "MANAGER";
+}
