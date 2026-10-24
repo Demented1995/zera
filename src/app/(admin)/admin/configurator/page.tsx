@@ -14,7 +14,7 @@ export default async function ConfiguratorPage() {
     <div className="space-y-8">
       <PageHeader
         title="Configurator profesional"
-        description="Stage 5.2 — formă, dimensiuni și iluminare LED / componente electrice. Defog, rame, livrare și comenzi urmează în etapele următoare."
+        description="Stage 5.3 — formă, LED, prelucrări, dezaburire, rame, găuri, accesorii și branding. Livrare și comenzi urmează în etapele următoare."
       />
       <ConfiguratorWorkspace canOverrideLedLength={canOverrideLedLength} />
     </div>

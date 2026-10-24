@@ -198,6 +198,17 @@ export function calculateMirrorPricing(
     transformers: [],
     accessories: [],
   };
+  const processingBuckets: Record<ProcessingBucketKey, Array<number | null>> = {
+    sandblast: [],
+    facets: [],
+    engraving: [],
+    defog: [],
+    frames: [],
+    mounting: [],
+    cutouts: [],
+    accessories: [],
+    branding: [],
+  };
 
   for (const spec of componentSpecs) {
     if (spec.qty === 0) {
@@ -258,6 +269,30 @@ export function calculateMirrorPricing(
     }
 
     if (!detail.seedKey) {
+      const override = detail.unitPriceOverride;
+      if (
+        override !== null &&
+        override !== undefined &&
+        Number.isFinite(override) &&
+        override >= 0 &&
+        detail.quantity > 0
+      ) {
+        const amount = roundMoney(detail.quantity * override);
+        componentAmounts.push(amount);
+        lines.push({
+          kind: "COMPONENT",
+          key: detail.key,
+          label: detail.label,
+          quantity: detail.quantity,
+          unit: detail.unit,
+          unitPrice: override,
+          amount,
+          note: detail.note,
+        });
+        pushCostBucket(electricalBuckets, processingBuckets, detail.group, amount);
+        continue;
+      }
+
       const reason = `${detail.label}: Preț neconfigurat (fără material asociat în catalog)`;
       if (detail.required || detail.quantity > 0) {
         missingCosts.push(reason);
@@ -273,7 +308,7 @@ export function calculateMirrorPricing(
           note: detail.note,
           incompleteReason: reason,
         });
-        pushElectricalBucket(electricalBuckets, detail.group, null);
+        pushCostBucket(electricalBuckets, processingBuckets, detail.group, null);
       }
       continue;
     }
@@ -295,7 +330,7 @@ export function calculateMirrorPricing(
         note: detail.note,
         incompleteReason: block,
       });
-      pushElectricalBucket(electricalBuckets, detail.group, null);
+      pushCostBucket(electricalBuckets, processingBuckets, detail.group, null);
       continue;
     }
 
@@ -316,7 +351,7 @@ export function calculateMirrorPricing(
           note: detail.note,
           incompleteReason: reason,
         });
-        pushElectricalBucket(electricalBuckets, detail.group, null);
+        pushCostBucket(electricalBuckets, processingBuckets, detail.group, null);
       }
       continue;
     }
@@ -333,7 +368,7 @@ export function calculateMirrorPricing(
       amount,
       note: detail.note,
     });
-    pushElectricalBucket(electricalBuckets, detail.group, amount);
+    pushCostBucket(electricalBuckets, processingBuckets, detail.group, amount);
   }
 
   const componentCosts =
@@ -356,6 +391,8 @@ export function calculateMirrorPricing(
   ]);
 
   // --- Decorative sandblast (separate from touch symbol) ---
+  // Minimum applies ONCE per decorative sandblast operation, not per band.
+  // Touch-symbol sandblast is already included in the touch sensor price.
   let operationCosts: number | null = 0;
   const sandblastArea =
     input.decorativeSandblastAreaM2 > 0
@@ -372,6 +409,7 @@ export function calculateMirrorPricing(
     if (block) {
       missingCosts.push(block);
       operationCosts = null;
+      processingBuckets.sandblast.push(null);
       lines.push({
         kind: "OPERATION",
         key: MATERIAL_SEED_KEYS.sandblast,
@@ -390,6 +428,7 @@ export function calculateMirrorPricing(
         input.rules.sandblastMinCharge,
       );
       operationCosts = amount;
+      processingBuckets.sandblast.push(amount);
       lines.push({
         kind: "OPERATION",
         key: MATERIAL_SEED_KEYS.sandblast,
@@ -477,6 +516,30 @@ export function calculateMirrorPricing(
     }
   }
 
+  const processing = {
+    sandblast: sumBucket(processingBuckets.sandblast),
+    facets: sumBucket(processingBuckets.facets),
+    engraving: sumBucket(processingBuckets.engraving),
+    defog: sumBucket(processingBuckets.defog),
+    frames: sumBucket(processingBuckets.frames),
+    mounting: sumBucket(processingBuckets.mounting),
+    cutouts: sumBucket(processingBuckets.cutouts),
+    accessories: sumBucket(processingBuckets.accessories),
+    branding: sumBucket(processingBuckets.branding),
+    total: null as number | null,
+  };
+  processing.total = sumNullable([
+    processing.sandblast,
+    processing.facets,
+    processing.engraving,
+    processing.defog,
+    processing.frames,
+    processing.mounting,
+    processing.cutouts,
+    processing.accessories,
+    processing.branding,
+  ]);
+
   const status = missingCosts.length === 0 ? "COMPLETE" : "INCOMPLETE";
 
   return {
@@ -492,6 +555,7 @@ export function calculateMirrorPricing(
     missingCosts,
     lines,
     electrical,
+    processing,
     meta: {
       calcWidthMm: glassArea.calcWidthMm,
       calcHeightMm: glassArea.calcHeightMm,
@@ -509,27 +573,66 @@ type ElectricalBucketKey =
   | "transformers"
   | "accessories";
 
-function pushElectricalBucket(
-  buckets: Record<ElectricalBucketKey, Array<number | null>>,
+type ProcessingBucketKey =
+  | "sandblast"
+  | "facets"
+  | "engraving"
+  | "defog"
+  | "frames"
+  | "mounting"
+  | "cutouts"
+  | "accessories"
+  | "branding";
+
+function pushCostBucket(
+  electrical: Record<ElectricalBucketKey, Array<number | null>>,
+  processing: Record<ProcessingBucketKey, Array<number | null>>,
   group: DetailedComponentLine["group"],
   amount: number | null,
 ): void {
   switch (group) {
     case "led-front":
-      buckets.frontLed.push(amount);
+      electrical.frontLed.push(amount);
       break;
     case "led-back":
-      buckets.backLed.push(amount);
+      electrical.backLed.push(amount);
       break;
     case "switch":
-      buckets.switches.push(amount);
+      electrical.switches.push(amount);
       break;
     case "transformer":
-      buckets.transformers.push(amount);
+      electrical.transformers.push(amount);
       break;
     case "accessory":
     case "other":
-      buckets.accessories.push(amount);
+      electrical.accessories.push(amount);
+      break;
+    case "sandblast":
+      processing.sandblast.push(amount);
+      break;
+    case "facet":
+      processing.facets.push(amount);
+      break;
+    case "engraving":
+      processing.engraving.push(amount);
+      break;
+    case "defog":
+      processing.defog.push(amount);
+      break;
+    case "frame":
+      processing.frames.push(amount);
+      break;
+    case "mounting":
+      processing.mounting.push(amount);
+      break;
+    case "cutout":
+      processing.cutouts.push(amount);
+      break;
+    case "product-accessory":
+      processing.accessories.push(amount);
+      break;
+    case "branding":
+      processing.branding.push(amount);
       break;
     default: {
       const _exhaustive: never = group;
@@ -567,6 +670,18 @@ function incompleteShell(
       switches: null,
       transformers: null,
       accessories: null,
+      total: null,
+    },
+    processing: {
+      sandblast: null,
+      facets: null,
+      engraving: null,
+      defog: null,
+      frames: null,
+      mounting: null,
+      cutouts: null,
+      accessories: null,
+      branding: null,
       total: null,
     },
     meta: {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { LightingSection } from "@/components/configurator/lighting-section";
+import { ProcessingSections } from "@/components/configurator/processing-sections";
 import { SummaryPanel } from "@/components/configurator/summary-panel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,10 @@ import {
   type LightingConfig,
 } from "@/modules/configurator/lighting";
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
+import {
+  defaultProcessingConfig,
+  type ProcessingConfig,
+} from "@/modules/configurator/processing";
 import {
   CONFIGURATOR_SHAPES,
   getShapeById,
@@ -28,6 +33,7 @@ type FormState = {
   edgeTopMm: string;
   edgeBottomMm: string;
   lighting: LightingConfig;
+  processing: ProcessingConfig;
 };
 
 const INITIAL: FormState = {
@@ -40,6 +46,7 @@ const INITIAL: FormState = {
   edgeTopMm: "0",
   edgeBottomMm: "0",
   lighting: defaultLightingConfig(),
+  processing: defaultProcessingConfig(),
 };
 
 function parsePositive(value: string): number | null {
@@ -160,6 +167,7 @@ export function ConfiguratorWorkspace({
         transformerPcs: lighting.transformerPcs,
         electricalConnection: lighting.electricalConnection,
         extraComponents: lighting.extraComponents,
+        processing: form.processing,
       },
     };
   }, [form, selectedShape?.edgeMode]);
@@ -203,7 +211,7 @@ export function ConfiguratorWorkspace({
               Configurare
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Stage 5.2 — formă, dimensiuni, tip sticlă și iluminare LED.
+              Stage 5.3 — formă, dimensiuni, LED, prelucrări și accesorii.
               Actualizare automată la modificare.
             </p>
           </div>
@@ -308,6 +316,11 @@ export function ConfiguratorWorkspace({
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
           canOverrideLedLength={canOverrideLedLength}
           onChange={(lighting) => update("lighting", lighting)}
+        />
+
+        <ProcessingSections
+          processing={form.processing}
+          onChange={(processing) => update("processing", processing)}
         />
       </div>
 

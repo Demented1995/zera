@@ -23,5 +23,6 @@ export {
   type ElectricalCostBreakdown,
   type GlassShapeKind,
   type PricingRules,
+  type ProcessingCostBreakdown,
 } from "@/modules/pricing/engine/types";
 export type { LedLengthComputation, LedPositioning } from "@/modules/pricing/engine/led-length";
