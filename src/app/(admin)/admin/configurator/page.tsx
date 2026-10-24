@@ -1,14 +1,21 @@
-import { ModulePlaceholder } from "@/components/admin/module-placeholder";
+import { PageHeader } from "@/components/admin/page-header";
+import { ConfiguratorWorkspace } from "@/components/configurator/configurator-workspace";
+import { requireStaffSession } from "@/lib/auth/guards";
 
 export const metadata = {
   title: "Configurator profesional | ZERA",
 };
 
-export default function ConfiguratorPage() {
+export default async function ConfiguratorPage() {
+  await requireStaffSession();
+
   return (
-    <ModulePlaceholder
-      title="Configurator profesional"
-      description="Spațiu rezervat pentru configurarea profesională a oglinzilor."
-    />
+    <div className="space-y-8">
+      <PageHeader
+        title="Configurator profesional"
+        description="Stage 5.1 — formă și dimensiuni. LED, accesorii și echiparea completă urmează în etapele următoare."
+      />
+      <ConfiguratorWorkspace />
+    </div>
   );
 }

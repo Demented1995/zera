@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/modules/pricing/engine/**/*.test.ts",
+    "test": "tsx --test src/modules/pricing/engine/**/*.test.ts src/modules/configurator/**/*.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

@@ -105,10 +105,22 @@ export function calculateMirrorPricing(
       : "Sticlă (forme speciale)",
   );
 
-  const curvedAdds = resolveCurvedEdgeAddsMm(
-    input.curvedEdges,
-    input.rules.curvedEdgeAddMm,
-  );
+  const curvedAdds =
+    input.explicitCurvedEdgeAddsMm ??
+    resolveCurvedEdgeAddsMm(input.curvedEdges, input.rules.curvedEdgeAddMm);
+
+  if (
+    curvedAdds.left < 0 ||
+    curvedAdds.right < 0 ||
+    curvedAdds.top < 0 ||
+    curvedAdds.bottom < 0
+  ) {
+    return incompleteShell(
+      missingCosts.concat("Adaosurile pe laturi trebuie să fie ≥ 0"),
+      lines,
+    );
+  }
+
   const glassArea = computeGlassArea({
     widthMm: input.widthMm,
     heightMm: input.heightMm,
