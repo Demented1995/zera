@@ -70,9 +70,8 @@ export function SummaryPanel({
         <div>
           <h2 className="text-sm font-semibold text-foreground">Sumar</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Cost sticlă, LED/electric și prelucrări pe regulile confirmate.
-            Sinecost/en-gros/retail doar când toate costurile necesare există —
-            INCOMPLETE nu e preț final.
+            Rezumat financiar A–F (sinecost) + servicii separate. INCOMPLETE /
+            „Calcul incomplet” nu e preț final confirmat.
           </p>
         </div>
         <StatusBadge status={status} pending={pending} />
@@ -190,7 +189,90 @@ export function SummaryPanel({
         </dl>
       ) : null}
 
-      {quote ? (
+      {calc?.financial ? (
+        <div className="space-y-3">
+          <dl className="grid gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">
+            <p className="font-medium text-foreground">Rezumat financiar</p>
+            <Row label="A Sticlă" value={money(calc.financial.glass)} />
+            <Row label="B LED / electric" value={money(calc.financial.led)} />
+            <Row
+              label="C Prelucrări"
+              value={money(calc.financial.processing)}
+            />
+            <Row
+              label="D Accesorii / branding"
+              value={money(calc.financial.accessories)}
+            />
+            <Row label="E Manoperă" value={money(calc.financial.labor)} />
+            <Row
+              label="F Ambalare inclusă"
+              value={money(calc.financial.packagingIncluded)}
+            />
+            <Row
+              label="Sinecost (A–F)"
+              value={
+                calc.status === "COMPLETE"
+                  ? money(calc.financial.sinecost)
+                  : "—"
+              }
+            />
+            <Row
+              label="En-gros"
+              value={
+                calc.status === "COMPLETE"
+                  ? money(calc.financial.wholesalePrice)
+                  : "—"
+              }
+            />
+            <Row
+              label="Retail"
+              value={
+                calc.status === "COMPLETE"
+                  ? money(calc.financial.retailPrice)
+                  : "—"
+              }
+            />
+          </dl>
+
+          <dl className="grid gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm">
+            <p className="font-medium text-foreground">
+              Servicii comerciale (fără adaos pe produs)
+            </p>
+            <Row
+              label="Ambalare extra"
+              value={money(calc.financial.services.packagingExtra)}
+            />
+            <Row
+              label="Livrare"
+              value={money(calc.financial.services.delivery)}
+            />
+            <Row
+              label="Montaj"
+              value={money(calc.financial.services.install)}
+            />
+            <Row
+              label="Total servicii"
+              value={money(calc.financial.services.total)}
+            />
+            <Row
+              label={
+                quote?.commercial.priceTier === "wholesale"
+                  ? "Total ofertă (en-gros + servicii)"
+                  : "Total ofertă (retail + servicii)"
+              }
+              value={
+                calc.status === "COMPLETE"
+                  ? money(
+                      quote?.commercial.priceTier === "wholesale"
+                        ? calc.financial.offerWholesale
+                        : calc.financial.offerRetail,
+                    )
+                  : "—"
+              }
+            />
+          </dl>
+        </div>
+      ) : quote ? (
         <dl className="grid gap-2 text-sm">
           <Row
             label="Sinecost producție"
@@ -213,6 +295,13 @@ export function SummaryPanel({
             }
           />
         </dl>
+      ) : null}
+
+      {calc && calc.status === "INCOMPLETE" ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-foreground">
+          Calcul incomplet — subtotalele cunoscute apar mai jos; nu reprezinta
+          un preț final confirmat.
+        </p>
       ) : null}
 
       {quote && quote.blockers.length > 0 ? (

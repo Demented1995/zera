@@ -11,6 +11,11 @@ import {
 import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
 import {
+  defaultCommercialConfig,
+  type CommercialConfig,
+  type LaborOpConfig,
+} from "@/modules/configurator/commercial";
+import {
   defaultProcessingConfig,
   type ProcessingConfig,
 } from "@/modules/configurator/processing";
@@ -114,6 +119,36 @@ function toProcessingConfig(
   };
 }
 
+function toCommercialConfig(
+  values: ReturnType<typeof configuratorInputSchema.parse>,
+): CommercialConfig {
+  const base = defaultCommercialConfig();
+  const incoming = values.commercial;
+  if (!incoming) {
+    return base;
+  }
+
+  const opsById = new Map(incoming.laborOps.map((item) => [item.id, item]));
+  const laborOps: LaborOpConfig[] = base.laborOps.map((item) => {
+    const next = opsById.get(item.id);
+    return next
+      ? {
+          id: next.id,
+          enabled: next.enabled,
+          qty: next.qty,
+          tariff: next.tariff,
+          note: next.note,
+        }
+      : item;
+  });
+
+  return {
+    ...base,
+    ...incoming,
+    laborOps,
+  };
+}
+
 export async function runConfiguratorQuoteAction(
   raw: unknown,
 ): Promise<ConfiguratorActionResult> {
@@ -123,7 +158,8 @@ export async function runConfiguratorQuoteAction(
   if (!parsed.success) {
     return {
       ok: false,
-      message: "Verificați forma, dimensiunile, iluminarea și prelucrările.",
+      message:
+        "Verificați forma, dimensiunile, iluminarea, prelucrările și serviciile.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<
         string,
         string[]
@@ -151,6 +187,7 @@ export async function runConfiguratorQuoteAction(
       },
       lighting: toLightingConfig(values),
       processing: toProcessingConfig(values),
+      commercial: toCommercialConfig(values),
     },
     materials,
     rules: toPricingRules(settings),
