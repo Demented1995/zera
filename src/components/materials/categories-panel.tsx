@@ -87,16 +87,7 @@ export function CategoriesPanel({
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium text-foreground">Categorii</h2>
-          <p className="text-xs text-muted-foreground">
-            Materiale, componente și operațiuni. Dezactivarea este soft.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       {canManage ? (
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
@@ -113,9 +104,13 @@ export function CategoriesPanel({
             Adaugă
           </Button>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Aveți acces doar la vizualizarea categoriilor.
+        </p>
+      )}
 
-      <ul className="divide-y divide-border rounded-lg border border-border">
+      <ul className="max-h-[50vh] divide-y divide-border overflow-y-auto rounded-lg border border-border">
         {categories.map((category) => (
           <li
             key={category.id}

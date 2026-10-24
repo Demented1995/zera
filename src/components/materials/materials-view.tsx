@@ -2,13 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { History, Pencil, Plus, Search } from "lucide-react";
+import { FolderTree, History, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
 import { PageHeader } from "@/components/admin/page-header";
-import { CategoriesPanel } from "@/components/materials/categories-panel";
+import { CategoriesDialog } from "@/components/materials/categories-dialog";
 import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { PriceHistoryDialog } from "@/components/materials/price-history-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,22 @@ type MaterialsViewProps = {
   historyByMaterialId: Record<string, PriceHistoryDTO[]>;
 };
 
+type MaterialGroup = {
+  categoryId: string;
+  categoryName: string;
+  categoryActive: boolean;
+  sortOrder: number;
+  materials: MaterialDTO[];
+};
+
+function hasUnconfirmedPrice(material: MaterialDTO) {
+  return material.unitPrice === null || material.unitPrice === "";
+}
+
+function hasUnconfirmedUom(material: MaterialDTO) {
+  return material.unitOfMeasure === UNCONFIRMED_UOM;
+}
+
 export function MaterialsView({
   materials,
   categories,
@@ -49,6 +65,7 @@ export function MaterialsView({
   const [categoryId, setCategoryId] = useState("all");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialDTO | null>(null);
   const [historyMaterial, setHistoryMaterial] = useState<MaterialDTO | null>(
     null,
@@ -57,6 +74,11 @@ export function MaterialsView({
     null,
   );
   const [pending, startTransition] = useTransition();
+
+  const categoryById = useMemo(() => {
+    const map = new Map(categories.map((category) => [category.id, category]));
+    return map;
+  }, [categories]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,6 +101,35 @@ export function MaterialsView({
       );
     });
   }, [materials, query, categoryId, status]);
+
+  const grouped = useMemo(() => {
+    const groups = new Map<string, MaterialGroup>();
+
+    for (const material of filtered) {
+      const category = categoryById.get(material.categoryId);
+      const key = material.categoryId;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.materials.push(material);
+        continue;
+      }
+
+      groups.set(key, {
+        categoryId: key,
+        categoryName: category?.name ?? material.categoryName,
+        categoryActive: category?.isActive ?? true,
+        sortOrder: category?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+        materials: [material],
+      });
+    }
+
+    return [...groups.values()].sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder;
+      }
+      return a.categoryName.localeCompare(b.categoryName, "ro");
+    });
+  }, [filtered, categoryById]);
 
   function refresh() {
     router.refresh();
@@ -126,24 +177,28 @@ export function MaterialsView({
     <div className="space-y-8">
       <PageHeader
         title="Materiale și componente"
-        description="Catalog de materiale, componente și operațiuni cu prețuri în MDL. Managerii pot doar vizualiza."
+        description="Prețuri și unități de măsură pe categorii. Managerii pot doar vizualiza."
         actions={
-          canManage ? (
-            <Button type="button" onClick={openCreate}>
-              <Plus className="size-4" />
-              Adaugă material
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCategoriesOpen(true)}
+            >
+              <FolderTree className="size-4" />
+              Gestionează categoriile
             </Button>
-          ) : null
+            {canManage ? (
+              <Button type="button" onClick={openCreate}>
+                <Plus className="size-4" />
+                Adaugă material
+              </Button>
+            ) : null}
+          </div>
         }
       />
 
-      <CategoriesPanel
-        categories={categories}
-        canManage={canManage}
-        onChanged={refresh}
-      />
-
-      <section className="space-y-4">
+      <section className="space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -181,118 +236,168 @@ export function MaterialsView({
           </select>
         </div>
 
-        {filtered.length === 0 ? (
+        {grouped.length === 0 ? (
           <EmptyState
             title="Niciun material găsit"
             description="Ajustați filtrele sau adăugați un material nou."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nume</TableHead>
-                  <TableHead>Cod</TableHead>
-                  <TableHead>Categorie</TableHead>
-                  <TableHead>Preț</TableHead>
-                  <TableHead>U.M.</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Acțiuni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((material) => (
-                  <TableRow key={material.id}>
-                    <TableCell className="max-w-[220px]">
-                      <div className="font-medium">{material.name}</div>
-                      {material.description ? (
-                        <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                          {material.description}
-                        </div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {material.internalCode || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {material.categoryName}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {formatMaterialPrice(
-                        material.unitPrice,
-                        material.currency,
-                        material.unitOfMeasure,
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {material.unitOfMeasure === UNCONFIRMED_UOM ? (
-                        <Badge variant="outline">neconfirmat</Badge>
-                      ) : (
-                        material.unitOfMeasure
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={material.isActive ? "secondary" : "outline"}
-                      >
-                        {material.isActive ? "Activ" : "Inactiv"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          title="Istoric prețuri"
-                          onClick={() => setHistoryMaterial(material)}
-                        >
-                          <History className="size-4" />
-                        </Button>
-                        {canManage ? (
-                          <>
-                            <Button
-                              type="button"
-                              size="icon-sm"
-                              variant="ghost"
-                              title="Editează"
-                              onClick={() => openEdit(material)}
-                              disabled={pending}
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
-                            {material.isActive ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setDeactivateTarget(material)}
-                                disabled={pending}
+          <div className="space-y-6">
+            {grouped.map((group) => (
+              <section
+                key={group.categoryId}
+                className="overflow-hidden rounded-xl border border-border bg-card"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h2 className="truncate text-sm font-semibold tracking-tight text-foreground">
+                      {group.categoryName}
+                    </h2>
+                    {!group.categoryActive ? (
+                      <Badge variant="outline">Categorie inactivă</Badge>
+                    ) : null}
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {group.materials.length}{" "}
+                    {group.materials.length === 1 ? "material" : "materiale"}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nume</TableHead>
+                        <TableHead>Preț</TableHead>
+                        <TableHead>U.M.</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Acțiuni</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.materials.map((material) => {
+                        const unconfirmedPrice = hasUnconfirmedPrice(material);
+                        const unconfirmedUom = hasUnconfirmedUom(material);
+
+                        return (
+                          <TableRow key={material.id}>
+                            <TableCell className="max-w-[280px]">
+                              <div className="font-medium text-foreground">
+                                {material.name}
+                              </div>
+                              {(unconfirmedPrice || unconfirmedUom) && (
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                  {unconfirmedPrice ? (
+                                    <Badge variant="outline">
+                                      Preț neconfirmat
+                                    </Badge>
+                                  ) : null}
+                                  {unconfirmedUom ? (
+                                    <Badge variant="outline">
+                                      U.M. neconfirmată
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-sm">
+                              {unconfirmedPrice ? (
+                                <span className="text-muted-foreground">
+                                  Preț nesetat
+                                </span>
+                              ) : (
+                                formatMaterialPrice(
+                                  material.unitPrice,
+                                  material.currency,
+                                )
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {unconfirmedUom ? (
+                                <span className="text-muted-foreground">
+                                  neconfirmat
+                                </span>
+                              ) : (
+                                material.unitOfMeasure
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  material.isActive ? "secondary" : "outline"
+                                }
                               >
-                                Dezactivează
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => reactivate(material)}
-                                disabled={pending}
-                              >
-                                Reactivează
-                              </Button>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                                {material.isActive ? "Activ" : "Inactiv"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  title="Istoric prețuri"
+                                  onClick={() => setHistoryMaterial(material)}
+                                >
+                                  <History className="size-4" />
+                                </Button>
+                                {canManage ? (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openEdit(material)}
+                                      disabled={pending}
+                                    >
+                                      Editează
+                                    </Button>
+                                    {material.isActive ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() =>
+                                          setDeactivateTarget(material)
+                                        }
+                                        disabled={pending}
+                                      >
+                                        Dezactivează
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => reactivate(material)}
+                                        disabled={pending}
+                                      >
+                                        Reactivează
+                                      </Button>
+                                    )}
+                                  </>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </section>
+
+      <CategoriesDialog
+        open={categoriesOpen}
+        onOpenChange={setCategoriesOpen}
+        categories={categories}
+        canManage={canManage}
+        onChanged={refresh}
+      />
 
       {canManage ? (
         <MaterialFormDialog
