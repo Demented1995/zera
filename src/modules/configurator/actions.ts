@@ -1,9 +1,16 @@
 "use server";
 
 import { requireStaffSession } from "@/lib/auth/guards";
+import {
+  defaultLedSystem,
+  defaultLightingConfig,
+  type ExtraComponentConfig,
+  type LightingConfig,
+  type SwitchConfig,
+} from "@/modules/configurator/lighting";
 import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
-import { configuratorInputSchema } from "@/modules/configurator/schemas";
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
+import { configuratorInputSchema } from "@/modules/configurator/schemas";
 import {
   getPricingSettings,
   loadCatalogMaterialsForEngine,
@@ -14,6 +21,48 @@ export type ConfiguratorActionResult =
   | { ok: true; quote: ConfiguratorQuote }
   | { ok: false; message: string; fieldErrors?: Record<string, string[]> };
 
+function toLightingConfig(
+  values: ReturnType<typeof configuratorInputSchema.parse>,
+): LightingConfig {
+  const base = defaultLightingConfig();
+  const front = { ...defaultLedSystem(), ...values.frontLed };
+  const back = { ...defaultLedSystem(), ...values.backLed };
+
+  const extrasById = new Map(
+    values.extraComponents.map((item) => [item.id, item]),
+  );
+  const extraComponents: ExtraComponentConfig[] = base.extraComponents.map(
+    (item) => {
+      const incoming = extrasById.get(item.id);
+      if (!incoming) {
+        return item;
+      }
+      return {
+        id: incoming.id,
+        enabled: incoming.enabled,
+        qty: incoming.qty,
+        side: incoming.side,
+      };
+    },
+  );
+
+  const switches: SwitchConfig[] = values.switches.map((item) => ({
+    type: item.type,
+    qty: item.qty,
+    associatedSystem: item.associatedSystem,
+  }));
+
+  return {
+    lightingType: values.lightingType,
+    front,
+    back,
+    switches,
+    transformerPcs: values.transformerPcs,
+    electricalConnection: values.electricalConnection,
+    extraComponents,
+  };
+}
+
 export async function runConfiguratorQuoteAction(
   raw: unknown,
 ): Promise<ConfiguratorActionResult> {
@@ -23,7 +72,7 @@ export async function runConfiguratorQuoteAction(
   if (!parsed.success) {
     return {
       ok: false,
-      message: "Verificați forma și dimensiunile.",
+      message: "Verificați forma, dimensiunile și iluminarea.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<
         string,
         string[]
@@ -49,6 +98,7 @@ export async function runConfiguratorQuoteAction(
         top: values.edgeTopMm,
         bottom: values.edgeBottomMm,
       },
+      lighting: toLightingConfig(values),
     },
     materials,
     rules: toPricingRules(settings),

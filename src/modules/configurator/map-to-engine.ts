@@ -12,6 +12,12 @@ import {
   type ConfiguratorGlassType,
 } from "@/modules/configurator/glass-types";
 import {
+  buildLightingDetailedComponents,
+  defaultLightingConfig,
+  type LedSystemResolved,
+  type LightingConfig,
+} from "@/modules/configurator/lighting";
+import {
   getShapeById,
   type ConfiguratorShape,
 } from "@/modules/configurator/shapes";
@@ -23,6 +29,7 @@ export type ConfiguratorState = {
   glassTypeId: string;
   /** Manual mm adds — used when shape.edgeMode === "manual". */
   manualEdgeAddsMm: CurvedEdgeAddsMm;
+  lighting: LightingConfig;
 };
 
 export type ConfiguratorQuote = {
@@ -30,6 +37,8 @@ export type ConfiguratorQuote = {
   glassType: ConfiguratorGlassType;
   widthMm: number;
   heightMm: number;
+  lighting: LightingConfig;
+  ledSystems: LedSystemResolved[];
   /** Human-readable blockers before/alongside engine (e.g. unconfirmed shape formula). */
   blockers: string[];
   calculation: CalculationResult | null;
@@ -65,7 +74,7 @@ export function buildCalculationInput(options: {
   glassType: ConfiguratorGlassType;
   materials: CatalogMaterial[];
   rules: PricingRules;
-}): CalculationInput | { error: string } {
+}): CalculationInput | { error: string; lightingBlockers?: string[] } {
   const { state, shape, glassType, materials, rules } = options;
 
   if (!shape.engineShape) {
@@ -93,16 +102,44 @@ export function buildCalculationInput(options: {
     };
   }
 
+  const shapeIsRectangular = shape.engineShape === "RECTANGLE";
+  const lightingBuilt = buildLightingDetailedComponents({
+    lighting: state.lighting,
+    shapeIsRectangular,
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+  });
+
   return {
     widthMm: state.widthMm,
     heightMm: state.heightMm,
     shape: shape.engineShape,
     curvedEdges,
     explicitCurvedEdgeAddsMm,
+    // Aggregated fields stay at 0 — LED/switches/transformers come via detailedComponents.
     components: { ledMeters: 0, transformerPcs: 0, touchPcs: 0 },
+    detailedComponents: lightingBuilt.detailedComponents,
     decorativeSandblastAreaM2: 0,
     materials: applyGlassTypeToCatalog(materials, glassType),
     rules,
+  };
+}
+
+function emptyQuoteShell(options: {
+  shape: ConfiguratorShape;
+  glassType: ConfiguratorGlassType;
+  state: ConfiguratorState;
+  blockers: string[];
+}): ConfiguratorQuote {
+  return {
+    shape: options.shape,
+    glassType: options.glassType,
+    widthMm: options.state.widthMm,
+    heightMm: options.state.heightMm,
+    lighting: options.state.lighting,
+    ledSystems: [],
+    blockers: options.blockers,
+    calculation: null,
   };
 }
 
@@ -111,29 +148,29 @@ export function quoteConfigurator(options: {
   materials: CatalogMaterial[];
   rules: PricingRules;
 }): ConfiguratorQuote {
-  const shape = getShapeById(options.state.shapeId);
-  const glassType = getGlassTypeById(options.state.glassTypeId);
+  const lighting = options.state.lighting ?? defaultLightingConfig();
+  const state: ConfiguratorState = { ...options.state, lighting };
+  const shape = getShapeById(state.shapeId);
+  const glassType = getGlassTypeById(state.glassTypeId);
   const blockers: string[] = [];
 
   if (!shape) {
-    return {
+    return emptyQuoteShell({
       shape: {
-        id: options.state.shapeId,
+        id: state.shapeId,
         label: "Necunoscută",
         description: "",
         engineShape: null,
         edgeMode: "unavailable",
       },
       glassType: glassType ?? {
-        id: options.state.glassTypeId,
+        id: state.glassTypeId,
         label: "Necunoscut",
         hasConfirmedPricing: false,
       },
-      widthMm: options.state.widthMm,
-      heightMm: options.state.heightMm,
+      state,
       blockers: ["Formă invalidă."],
-      calculation: null,
-    };
+    });
   }
 
   if (!glassType) {
@@ -150,18 +187,25 @@ export function quoteConfigurator(options: {
     blockers.push(
       `Formula pentru forma „${shape.label}” nu este încă confirmată.`,
     );
-    return {
+    return emptyQuoteShell({
       shape,
       glassType: glassType!,
-      widthMm: options.state.widthMm,
-      heightMm: options.state.heightMm,
+      state,
       blockers,
-      calculation: null,
-    };
+    });
   }
 
+  const shapeIsRectangular = shape.engineShape === "RECTANGLE";
+  const lightingBuilt = buildLightingDetailedComponents({
+    lighting,
+    shapeIsRectangular,
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+  });
+  blockers.push(...lightingBuilt.blockers);
+
   const input = buildCalculationInput({
-    state: options.state,
+    state,
     shape,
     glassType: glassType!,
     materials: options.materials,
@@ -173,8 +217,10 @@ export function quoteConfigurator(options: {
     return {
       shape,
       glassType: glassType!,
-      widthMm: options.state.widthMm,
-      heightMm: options.state.heightMm,
+      widthMm: state.widthMm,
+      heightMm: state.heightMm,
+      lighting,
+      ledSystems: lightingBuilt.ledSystems,
       blockers,
       calculation: null,
     };
@@ -200,11 +246,27 @@ export function quoteConfigurator(options: {
     calculation.totalProductionCost = null;
   }
 
+  // Lighting length / association blockers keep full pricing incomplete
+  // even when LED unit prices exist.
+  if (lightingBuilt.blockers.length > 0) {
+    calculation.status = "INCOMPLETE";
+    calculation.wholesalePrice = null;
+    calculation.retailPrice = null;
+    calculation.totalProductionCost = null;
+    for (const blocker of lightingBuilt.blockers) {
+      if (!calculation.missingCosts.includes(blocker)) {
+        calculation.missingCosts.push(blocker);
+      }
+    }
+  }
+
   return {
     shape,
     glassType: glassType!,
-    widthMm: options.state.widthMm,
-    heightMm: options.state.heightMm,
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+    lighting,
+    ledSystems: lightingBuilt.ledSystems,
     blockers,
     calculation,
   };

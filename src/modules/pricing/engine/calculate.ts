@@ -8,6 +8,7 @@ import {
   type CalculationResult,
   type CatalogMaterial,
   type CostLine,
+  type DetailedComponentLine,
 } from "@/modules/pricing/engine/types";
 
 function findMaterial(
@@ -187,6 +188,16 @@ export function calculateMirrorPricing(
   ];
 
   const componentAmounts: Array<number | null> = [];
+  const electricalBuckets: Record<
+    "frontLed" | "backLed" | "switches" | "transformers" | "accessories",
+    Array<number | null>
+  > = {
+    frontLed: [],
+    backLed: [],
+    switches: [],
+    transformers: [],
+    accessories: [],
+  };
 
   for (const spec of componentSpecs) {
     if (spec.qty === 0) {
@@ -225,9 +236,124 @@ export function calculateMirrorPricing(
       amount,
       note: spec.note,
     });
+
+    if (spec.seedKey === MATERIAL_SEED_KEYS.led) {
+      electricalBuckets.frontLed.push(amount);
+    } else if (spec.seedKey === MATERIAL_SEED_KEYS.transformer) {
+      electricalBuckets.transformers.push(amount);
+    } else if (spec.seedKey === MATERIAL_SEED_KEYS.touch) {
+      electricalBuckets.switches.push(amount);
+    }
   }
 
-  const componentCosts = sumNullable(componentAmounts);
+  for (const detail of input.detailedComponents ?? []) {
+    if (detail.quantity === 0 && !detail.required) {
+      continue;
+    }
+
+    if (detail.quantity < 0 || !Number.isFinite(detail.quantity)) {
+      missingCosts.push(`${detail.label}: cantitate invalidă`);
+      componentAmounts.push(null);
+      continue;
+    }
+
+    if (!detail.seedKey) {
+      const reason = `${detail.label}: Preț neconfigurat (fără material asociat în catalog)`;
+      if (detail.required || detail.quantity > 0) {
+        missingCosts.push(reason);
+        componentAmounts.push(null);
+        lines.push({
+          kind: "COMPONENT",
+          key: detail.key,
+          label: detail.label,
+          quantity: detail.quantity,
+          unit: detail.unit,
+          unitPrice: null,
+          amount: null,
+          note: detail.note,
+          incompleteReason: reason,
+        });
+        pushElectricalBucket(electricalBuckets, detail.group, null);
+      }
+      continue;
+    }
+
+    const material = findMaterial(input.materials, detail.seedKey);
+    const block = materialBlockingReason(material, detail.label);
+
+    if (block) {
+      missingCosts.push(block);
+      componentAmounts.push(null);
+      lines.push({
+        kind: "COMPONENT",
+        key: detail.key,
+        label: material?.name ?? detail.label,
+        quantity: detail.quantity,
+        unit: detail.unit,
+        unitPrice: null,
+        amount: null,
+        note: detail.note,
+        incompleteReason: block,
+      });
+      pushElectricalBucket(electricalBuckets, detail.group, null);
+      continue;
+    }
+
+    if (detail.quantity === 0) {
+      if (detail.required) {
+        const reason =
+          detail.note ?? `${detail.label}: cantitate / lungime de confirmat`;
+        missingCosts.push(reason);
+        componentAmounts.push(null);
+        lines.push({
+          kind: "COMPONENT",
+          key: detail.key,
+          label: material!.name ?? detail.label,
+          quantity: 0,
+          unit: detail.unit,
+          unitPrice: material!.unitPrice,
+          amount: null,
+          note: detail.note,
+          incompleteReason: reason,
+        });
+        pushElectricalBucket(electricalBuckets, detail.group, null);
+      }
+      continue;
+    }
+
+    const amount = roundMoney(detail.quantity * material!.unitPrice!);
+    componentAmounts.push(amount);
+    lines.push({
+      kind: "COMPONENT",
+      key: detail.key,
+      label: detail.label,
+      quantity: detail.quantity,
+      unit: detail.unit,
+      unitPrice: material!.unitPrice,
+      amount,
+      note: detail.note,
+    });
+    pushElectricalBucket(electricalBuckets, detail.group, amount);
+  }
+
+  const componentCosts =
+    componentAmounts.length === 0 ? 0 : sumNullable(componentAmounts);
+
+  const electrical = {
+    frontLed: sumBucket(electricalBuckets.frontLed),
+    backLed: sumBucket(electricalBuckets.backLed),
+    switches: sumBucket(electricalBuckets.switches),
+    transformers: sumBucket(electricalBuckets.transformers),
+    accessories: sumBucket(electricalBuckets.accessories),
+    total: null as number | null,
+  };
+  electrical.total = sumNullable([
+    electrical.frontLed,
+    electrical.backLed,
+    electrical.switches,
+    electrical.transformers,
+    electrical.accessories,
+  ]);
 
   // --- Decorative sandblast (separate from touch symbol) ---
   let operationCosts: number | null = 0;
@@ -365,6 +491,7 @@ export function calculateMirrorPricing(
     retailPrice,
     missingCosts,
     lines,
+    electrical,
     meta: {
       calcWidthMm: glassArea.calcWidthMm,
       calcHeightMm: glassArea.calcHeightMm,
@@ -373,6 +500,49 @@ export function calculateMirrorPricing(
       sandblastAreaM2: sandblastArea,
     },
   };
+}
+
+type ElectricalBucketKey =
+  | "frontLed"
+  | "backLed"
+  | "switches"
+  | "transformers"
+  | "accessories";
+
+function pushElectricalBucket(
+  buckets: Record<ElectricalBucketKey, Array<number | null>>,
+  group: DetailedComponentLine["group"],
+  amount: number | null,
+): void {
+  switch (group) {
+    case "led-front":
+      buckets.frontLed.push(amount);
+      break;
+    case "led-back":
+      buckets.backLed.push(amount);
+      break;
+    case "switch":
+      buckets.switches.push(amount);
+      break;
+    case "transformer":
+      buckets.transformers.push(amount);
+      break;
+    case "accessory":
+    case "other":
+      buckets.accessories.push(amount);
+      break;
+    default: {
+      const _exhaustive: never = group;
+      void _exhaustive;
+    }
+  }
+}
+
+function sumBucket(values: Array<number | null>): number | null {
+  if (values.length === 0) {
+    return 0;
+  }
+  return sumNullable(values);
 }
 
 function incompleteShell(
@@ -391,6 +561,14 @@ function incompleteShell(
     retailPrice: null,
     missingCosts,
     lines,
+    electrical: {
+      frontLed: null,
+      backLed: null,
+      switches: null,
+      transformers: null,
+      accessories: null,
+      total: null,
+    },
     meta: {
       calcWidthMm: null,
       calcHeightMm: null,

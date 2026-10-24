@@ -7,15 +7,16 @@ export const metadata = {
 };
 
 export default async function ConfiguratorPage() {
-  await requireStaffSession();
+  const session = await requireStaffSession();
+  const canOverrideLedLength = session.user.role === "ADMIN";
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Configurator profesional"
-        description="Stage 5.1 — formă și dimensiuni. LED, accesorii și echiparea completă urmează în etapele următoare."
+        description="Stage 5.2 — formă, dimensiuni și iluminare LED / componente electrice. Defog, rame, livrare și comenzi urmează în etapele următoare."
       />
-      <ConfiguratorWorkspace />
+      <ConfiguratorWorkspace canOverrideLedLength={canOverrideLedLength} />
     </div>
   );
 }
