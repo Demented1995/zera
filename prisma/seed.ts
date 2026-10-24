@@ -217,6 +217,22 @@ async function main() {
 
   await seedCategories();
   await seedMaterials();
+  await seedPricingSettings();
+}
+
+async function seedPricingSettings() {
+  await prisma.pricingSettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      wholesaleMarkupPercent: new Prisma.Decimal(30),
+      retailMarkupPercent: new Prisma.Decimal(70),
+      curvedEdgeAddMm: new Prisma.Decimal(50),
+      sandblastMinCharge: new Prisma.Decimal(100),
+    },
+  });
+  console.log("Seeded pricing settings (wholesale 30%, retail 70%, curve +50mm, sandblast min 100)");
 }
 
 main()

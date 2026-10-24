@@ -21,7 +21,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  materialPriceChanges MaterialPriceHistory[]
+  materialPriceChanges    MaterialPriceHistory[]
+  pricingSettingsChanges  PricingSettingsHistory[]
 }
 
 /// Categories for materials, components, and operations (e.g. Manoperă).
@@ -72,4 +73,32 @@ model MaterialPriceHistory {
   changedBy     User      @relation(fields: [changedById], references: [id])
 
   @@index([materialId, changedAt])
+}
+
+/// Singleton global pricing rules (markups, curved-edge add, sandblast minimum).
+/// Material unit prices stay on Material — this is not a second price catalog.
+model PricingSettings {
+  id                     String   @id @default("default")
+  wholesaleMarkupPercent Decimal  @default(30) @db.Decimal(8, 2)
+  retailMarkupPercent    Decimal  @default(70) @db.Decimal(8, 2)
+  /// Standard mm added per curved outer edge direction when admin enables that side.
+  curvedEdgeAddMm        Decimal  @default(50) @db.Decimal(8, 2)
+  /// Minimum charge per decorative sandblast operation (not per band).
+  sandblastMinCharge     Decimal  @default(100) @db.Decimal(12, 2)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+/// Immutable log of global pricing-rule changes.
+model PricingSettingsHistory {
+  id            String   @id @default(cuid())
+  fieldKey      String
+  previousValue String?
+  newValue      String?
+  changedAt     DateTime @default(now())
+  changedById   String
+  changedBy     User     @relation(fields: [changedById], references: [id])
+
+  @@index([changedAt])
+  @@index([fieldKey])
 }
