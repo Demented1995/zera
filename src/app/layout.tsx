@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
+import { publicSiteUrl } from "@/modules/shop/site";
 
 import "./globals.css";
 
@@ -16,11 +17,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(publicSiteUrl()),
   title: {
     default: "ZERA",
     template: "%s | ZERA",
   },
-  description: "ZERA — platformă pentru oglinzi personalizate și oglinzi LED.",
+  description: "ZERA — oglinzi personalizate, cu preț în MDL.",
 };
 
 export default function RootLayout({

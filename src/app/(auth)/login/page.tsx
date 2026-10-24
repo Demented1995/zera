@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/card";
 
 export const metadata = {
-  title: "Autentificare | ZERA",
+  title: "Autentificare",
+  robots: { index: false, follow: false },
 };
 
 export default function LoginPage() {

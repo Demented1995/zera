@@ -61,6 +61,24 @@ export function ModelRowActions({ id, status, canManage }: Props) {
         {canManage ? "Editează" : "Vezi"}
       </Link>
       <Link
+        href={`/admin/modele/${id}/descriere`}
+        className="text-sm underline-offset-2 hover:underline"
+      >
+        Descriere
+      </Link>
+      <Link
+        href={`/admin/modele/${id}/fotografii`}
+        className="text-sm underline-offset-2 hover:underline"
+      >
+        Fotografii
+      </Link>
+      <Link
+        href={`/admin/modele/${id}/produs`}
+        className="text-sm underline-offset-2 hover:underline"
+      >
+        Previzualizează produsul
+      </Link>
+      <Link
         href={`/admin/modele/${id}/previzualizare`}
         className="text-sm underline-offset-2 hover:underline"
       >

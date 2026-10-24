@@ -7,7 +7,7 @@ import { listSavedConfigurations } from "@/modules/offers/queries";
 import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Model nou | ZERA",
+  title: "Model nou",
 };
 
 export default async function ModelNouPage() {
@@ -47,7 +47,6 @@ export default async function ModelNouPage() {
           name: config.name,
         }))}
         canEditTariffs={session.user.role === "ADMIN"}
-        canOverrideLedLength={session.user.role === "ADMIN"}
       />
     </div>
   );

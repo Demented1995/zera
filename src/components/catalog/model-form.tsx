@@ -26,7 +26,6 @@ type ModelFormProps = {
   categories: CategoryOption[];
   savedConfigs: SavedConfigOption[];
   canEditTariffs: boolean;
-  canOverrideLedLength: boolean;
   canManageRules?: boolean;
   initial?: {
     id: string;
@@ -52,7 +51,6 @@ export function ModelForm({
   categories,
   savedConfigs,
   canEditTariffs,
-  canOverrideLedLength,
   canManageRules = false,
   initial = null,
 }: ModelFormProps) {
@@ -275,7 +273,6 @@ export function ModelForm({
         <ModelTechEditor
           initialState={initial?.config ?? null}
           canEditTariffs={canEditTariffs}
-          canOverrideLedLength={canOverrideLedLength}
           onChange={(payload) => {
             markDirty();
             setConfigPayload(payload);

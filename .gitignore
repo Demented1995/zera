@@ -45,3 +45,6 @@ next-env.d.ts
 # local tooling
 .idea/
 .vscode/
+
+# local product media (replaceable storage; not committed)
+/storage/

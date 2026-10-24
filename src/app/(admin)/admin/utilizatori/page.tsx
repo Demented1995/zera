@@ -2,7 +2,7 @@ import { ModulePlaceholder } from "@/components/admin/module-placeholder";
 import { requirePageAccess } from "@/lib/auth/guards";
 
 export const metadata = {
-  title: "Utilizatori | ZERA",
+  title: "Utilizatori",
 };
 
 export default async function UtilizatoriPage() {

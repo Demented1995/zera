@@ -253,12 +253,10 @@ describe("configurator Stage 5.2 lighting", () => {
     lighting.lightingType = "front";
     lighting.front = {
       ...defaultLedSystem(),
-      useManualOverride: true,
       manualBaseLengthMm: 2500 / 1.1,
-      manualOverrideReason: "test manual 2.5 m total",
     };
     const quote = quoteConfigurator({
-      state: state({ lighting }),
+      state: state({ shapeId: "ellipse", lighting }),
       materials,
       rules,
     });

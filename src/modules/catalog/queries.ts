@@ -46,6 +46,11 @@ export async function listMirrorModels(filters: {
       createdBy: { select: { id: true, name: true, email: true } },
       updatedBy: { select: { id: true, name: true, email: true } },
       _count: { select: { offers: true } },
+      images: {
+        orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+        take: 1,
+        select: { id: true },
+      },
     },
     orderBy: { [sort]: order },
   });

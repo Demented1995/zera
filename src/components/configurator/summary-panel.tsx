@@ -122,16 +122,9 @@ export function SummaryPanel({
             return (
               <div
                 key={system.side}
-                className={
-                  system.overrideHighlight
-                    ? "rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1.5"
-                    : "rounded-md border border-border/60 px-2 py-1.5"
-                }
+                className="rounded-md border border-border/60 px-2 py-1.5"
               >
-                <p className="font-medium">
-                  {sideLabel}
-                  {system.overrideHighlight ? " · OVERRIDE" : ""}
-                </p>
+                <p className="font-medium">{sideLabel}</p>
                 {system.lengthError ? (
                   <p className="text-xs text-muted-foreground">
                     {system.lengthError}

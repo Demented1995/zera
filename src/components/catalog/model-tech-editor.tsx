@@ -97,7 +97,6 @@ function parseNonNeg(value: string): number | null {
 
 type Props = {
   initialState?: ConfiguratorState | null;
-  canOverrideLedLength?: boolean;
   canEditTariffs?: boolean;
   onChange: (payload: Record<string, unknown>) => void;
 };
@@ -107,7 +106,6 @@ type Props = {
  */
 export function ModelTechEditor({
   initialState = null,
-  canOverrideLedLength = false,
   canEditTariffs = false,
   onChange,
 }: Props) {
@@ -308,7 +306,6 @@ export function ModelTechEditor({
           widthMm={parsed.ok ? parsed.widthMm : null}
           heightMm={parsed.ok ? parsed.heightMm : null}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
-          canOverrideLedLength={canOverrideLedLength}
           onChange={(lighting) => update("lighting", lighting)}
         />
 

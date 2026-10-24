@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PublishModelButton } from "@/components/catalog/publish-model-button";
 import { ModelForm } from "@/components/catalog/model-form";
+import { ModelGallery } from "@/components/catalog/model-gallery";
 import { PageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireStaffSession } from "@/lib/auth/guards";
@@ -18,10 +20,12 @@ import {
   MODEL_STATUS_LABEL,
 } from "@/modules/catalog/status";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
+import { listModelImages } from "@/modules/catalog/images/service";
 import { listSavedConfigurations } from "@/modules/offers/queries";
+import { prisma } from "@/lib/db/prisma";
 
 export const metadata = {
-  title: "Editare model | ZERA",
+  title: "Editare model",
 };
 
 type PageProps = {
@@ -42,7 +46,7 @@ export default async function ModelEditPage({ params }: PageProps) {
     redirect(`/admin/configurator?modelId=${model.id}`);
   }
 
-  const [categories, configs] = await Promise.all([
+  const [categories, configs, images] = await Promise.all([
     listMirrorCategories({ activeOnly: true }),
     listSavedConfigurations({
       q: "",
@@ -50,6 +54,7 @@ export default async function ModelEditPage({ params }: PageProps) {
       sort: "updatedAt",
       order: "desc",
     }),
+    listModelImages(prisma, model.id),
   ]);
 
   const categoryOptions = [
@@ -78,6 +83,19 @@ export default async function ModelEditPage({ params }: PageProps) {
           {model._count.offers} oferte legate · publicat pe site:{" "}
           {model.isPublished ? "da" : "nu"}
         </span>
+        {canManage ? <PublishModelButton id={model.id} published={model.isPublished} /> : null}
+        <Link
+          href={`/admin/modele/${model.id}/descriere`}
+          className="underline-offset-2 hover:underline"
+        >
+          Descriere și specificații
+        </Link>
+        <Link
+          href={`/admin/modele/${model.id}/produs`}
+          className="underline-offset-2 hover:underline"
+        >
+          Previzualizează produsul
+        </Link>
         <Link
           href={`/admin/modele/${model.id}/previzualizare`}
           className="underline-offset-2 hover:underline"
@@ -93,7 +111,6 @@ export default async function ModelEditPage({ params }: PageProps) {
           name: config.name,
         }))}
         canEditTariffs={session.user.role === "ADMIN"}
-        canOverrideLedLength={session.user.role === "ADMIN"}
         canManageRules={canManageConfiguratorRules(session.user.role)}
         initial={{
           id: model.id,
@@ -112,6 +129,7 @@ export default async function ModelEditPage({ params }: PageProps) {
           defaultHeightMm: Number(model.defaultHeightMm),
         }}
       />
+      <ModelGallery modelId={model.id} initialImages={images} canManage />
     </div>
   );
 }

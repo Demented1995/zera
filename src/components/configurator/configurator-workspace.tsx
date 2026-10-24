@@ -85,7 +85,6 @@ function parseNonNeg(value: string): number | null {
 }
 
 type ConfiguratorWorkspaceProps = {
-  canOverrideLedLength?: boolean;
   canEditTariffs?: boolean;
   initialConfigId?: string | null;
   initialConfigCode?: string | null;
@@ -110,7 +109,6 @@ function formFromState(state: ConfiguratorState): FormState {
 }
 
 export function ConfiguratorWorkspace({
-  canOverrideLedLength = false,
   canEditTariffs = false,
   initialConfigId = null,
   initialConfigCode = null,
@@ -179,30 +177,6 @@ export function ConfiguratorWorkspace({
     }
 
     const lighting = form.lighting;
-    if (
-      (lighting.lightingType === "front" || lighting.lightingType === "both") &&
-      lighting.front.useManualOverride &&
-      !lighting.front.manualOverrideReason.trim()
-    ) {
-      return {
-        ok: false as const,
-        message: "Motiv obligatoriu pentru override-ul lungimii LED față.",
-        widthMm,
-        heightMm,
-      };
-    }
-    if (
-      (lighting.lightingType === "back" || lighting.lightingType === "both") &&
-      lighting.back.useManualOverride &&
-      !lighting.back.manualOverrideReason.trim()
-    ) {
-      return {
-        ok: false as const,
-        message: "Motiv obligatoriu pentru override-ul lungimii LED spate.",
-        widthMm,
-        heightMm,
-      };
-    }
 
     return {
       ok: true as const,
@@ -409,7 +383,6 @@ export function ConfiguratorWorkspace({
           widthMm={parsed.widthMm}
           heightMm={parsed.heightMm}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
-          canOverrideLedLength={canOverrideLedLength}
           onChange={(lighting) => update("lighting", lighting)}
         />
 

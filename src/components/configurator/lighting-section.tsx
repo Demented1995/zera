@@ -22,14 +22,12 @@ import {
   resolveLedLength,
   type LedPositioning,
 } from "@/modules/pricing/engine/led-length";
-import { roundMoney } from "@/modules/pricing/engine";
 
 type LightingSectionProps = {
   lighting: LightingConfig;
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
-  canOverrideLedLength: boolean;
   onChange: (next: LightingConfig) => void;
 };
 
@@ -42,7 +40,6 @@ export function LightingSection({
   widthMm,
   heightMm,
   shapeIsRectangular,
-  canOverrideLedLength,
   onChange,
 }: LightingSectionProps) {
   function setLightingType(lightingType: LightingType) {
@@ -129,7 +126,6 @@ export function LightingSection({
           widthMm={widthMm}
           heightMm={heightMm}
           shapeIsRectangular={shapeIsRectangular}
-          canOverrideLedLength={canOverrideLedLength}
           onChange={patchFront}
         />
       ) : null}
@@ -141,7 +137,6 @@ export function LightingSection({
           widthMm={widthMm}
           heightMm={heightMm}
           shapeIsRectangular={shapeIsRectangular}
-          canOverrideLedLength={canOverrideLedLength}
           onChange={patchBack}
         />
       ) : null}
@@ -358,7 +353,6 @@ function LedSystemFields({
   widthMm,
   heightMm,
   shapeIsRectangular,
-  canOverrideLedLength,
   onChange,
 }: {
   title: string;
@@ -366,7 +360,6 @@ function LedSystemFields({
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
-  canOverrideLedLength: boolean;
   onChange: (patch: Partial<LedSystemConfig>) => void;
 }) {
   const preview =
@@ -377,7 +370,6 @@ function LedSystemFields({
           heightMm,
           positioning: system.positioning,
           manualBaseLengthMm: system.manualBaseLengthMm,
-          useManualOverride: system.useManualOverride,
         })
       : { error: "Dimensiuni incomplete" };
 
@@ -481,7 +473,7 @@ function LedSystemFields({
         </dl>
       )}
 
-      {!shapeIsRectangular && !system.useManualOverride ? (
+      {!shapeIsRectangular ? (
         <div className="grid gap-1.5">
           <Label>Lungime de bază (mm) — formulă neconfirmată</Label>
           <Input
@@ -507,66 +499,6 @@ function LedSystemFields({
             Introduceți lungimea de bază; suplimentul 10% se aplică o singură
             dată.
           </p>
-        </div>
-      ) : null}
-
-      {canOverrideLedLength ? (
-        <div
-          className={
-            system.useManualOverride
-              ? "space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3"
-              : "space-y-2 rounded-md border border-dashed border-border p-3"
-          }
-        >
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={system.useManualOverride}
-              onChange={(event) =>
-                onChange({ useManualOverride: event.target.checked })
-              }
-            />
-            Override ADMIN lungime LED
-          </label>
-          {system.useManualOverride ? (
-            <>
-              <div className="grid gap-1.5">
-                <Label>Lungime bază override (mm)</Label>
-                <Input
-                  inputMode="decimal"
-                  value={
-                    system.manualBaseLengthMm === null
-                      ? ""
-                      : String(system.manualBaseLengthMm)
-                  }
-                  onChange={(event) => {
-                    const raw = event.target.value.trim();
-                    onChange({
-                      manualBaseLengthMm: raw === "" ? null : Number(raw),
-                    });
-                  }}
-                  className="border-amber-500/70"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Motiv (obligatoriu)</Label>
-                <Input
-                  value={system.manualOverrideReason}
-                  onChange={(event) =>
-                    onChange({ manualOverrideReason: event.target.value })
-                  }
-                  className="border-amber-500/70"
-                  placeholder="Ex: contur special validat pe schiță"
-                />
-              </div>
-              {"error" in preview ? null : (
-                <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                  Valoare modificată: {roundMoney(preview.totalLengthM).toFixed(2)}{" "}
-                  m total (10% aplicat o dată pe baza manuală)
-                </p>
-              )}
-            </>
-          ) : null}
         </div>
       ) : null}
     </fieldset>

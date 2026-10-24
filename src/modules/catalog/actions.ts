@@ -27,6 +27,8 @@ import {
   modelCategorySchema,
   saveMirrorModelSchema,
 } from "@/modules/catalog/schemas";
+import { findSlugConflict, persistSlugChange } from "@/modules/catalog/content/slug-policy";
+import { publicSaleBlock } from "@/modules/shop/catalog";
 import { isValidSlug, slugifyModelName } from "@/modules/catalog/slug";
 import {
   assertCanActivate,
@@ -51,6 +53,8 @@ function revalidateCatalog() {
   revalidatePath("/admin/modele");
   revalidatePath("/admin/categorii");
   revalidatePath("/admin/produse");
+  revalidatePath("/");
+  revalidatePath("/catalog");
 }
 
 export async function saveMirrorCategoryAction(
@@ -159,14 +163,9 @@ export async function saveMirrorModelAction(
     return { ok: false, message: "Categoria comercială nu este validă." };
   }
 
-  const slugConflict = await prisma.mirrorModel.findFirst({
-    where: {
-      slug: data.slug,
-      ...(data.id ? { NOT: { id: data.id } } : {}),
-    },
-  });
+  const slugConflict = await findSlugConflict(prisma, data.slug, data.id ?? null);
   if (slugConflict) {
-    return { ok: false, message: "Slug-ul este deja folosit de alt model." };
+    return { ok: false, message: slugConflict };
   }
 
   const { state, calculation, blockers } = await recalculateFromConfigPayload(
@@ -214,8 +213,6 @@ export async function saveMirrorModelAction(
     fullDescription: data.fullDescription ?? null,
     categoryId: data.categoryId,
     status,
-    // Stage 6.1: never auto-publish to public site.
-    isPublished: false,
     configJson: state as unknown as Prisma.InputJsonValue,
     calculationJson: (calculation ?? {
       status: "INCOMPLETE",
@@ -242,23 +239,45 @@ export async function saveMirrorModelAction(
       return { ok: false, message: "Modelul nu a fost găsit." };
     }
 
-    // Preserve Stage 6.2 limits/rules — identity/tech save must not wipe them.
+    // Preserve Stage 6.2 limits/rules and the publication flag.
     // Editing a model never mutates issued offer revisions (prices live in OfferRevision).
-    const updated = await prisma.mirrorModel.update({
-      where: { id: data.id },
-      data: rowData,
+    const saved = await prisma.$transaction(async (tx) => {
+      const assigned = await persistSlugChange(tx, {
+        modelId: existing.id,
+        currentSlug: existing.slug,
+        nextSlug: data.slug,
+        isPublished: existing.isPublished,
+        slugCustomized: existing.slugCustomized,
+        name: data.name,
+        slugEdited: data.slug !== existing.slug,
+      });
+      if (!assigned.ok) {
+        return assigned;
+      }
+      const row = await tx.mirrorModel.update({
+        where: { id: data.id },
+        data: {
+          ...rowData,
+          slug: assigned.slug,
+          slugCustomized: assigned.slugCustomized,
+        },
+      });
+      return { ok: true as const, row };
     });
+    if (!saved.ok) {
+      return saved;
+    }
     revalidateCatalog();
-    revalidatePath(`/admin/modele/${updated.id}`);
+    revalidatePath(`/admin/modele/${saved.row.id}`);
     return {
       ok: true,
       message:
         status === "DRAFT" && data.status === "ACTIVE"
           ? "Salvat ca ciornă (calcul incomplet — activarea a fost blocată)."
           : "Modelul a fost actualizat.",
-      id: updated.id,
-      code: updated.code,
-      slug: updated.slug,
+      id: saved.row.id,
+      code: saved.row.code,
+      slug: saved.row.slug,
     };
   }
 
@@ -266,6 +285,8 @@ export async function saveMirrorModelAction(
   const created = await prisma.mirrorModel.create({
     data: {
       ...rowData,
+      isPublished: false,
+      slugCustomized: data.slug !== slugifyModelName(data.name),
       code,
       // New models: no limits until rules are configured (safe FIXED defaults).
       minWidthMm: null,
@@ -456,6 +477,10 @@ export async function duplicateMirrorModelAction(
     slug = `${baseSlug}-${attempt}`;
   }
 
+  const sourceImages = await prisma.mirrorModelImage.findMany({
+    where: { modelId: source.id },
+  });
+
   const copy = await prisma.mirrorModel.create({
     data: {
       code,
@@ -463,6 +488,15 @@ export async function duplicateMirrorModelAction(
       slug,
       shortDescription: source.shortDescription,
       fullDescription: source.fullDescription,
+      descriptionJson: source.descriptionJson ?? undefined,
+      highlightsJson: source.highlightsJson ?? undefined,
+      careJson: source.careJson ?? undefined,
+      warrantyJson: source.warrantyJson ?? undefined,
+      deliveryJson: source.deliveryJson ?? undefined,
+      extraSpecsJson: source.extraSpecsJson ?? undefined,
+      seoTitle: source.seoTitle,
+      seoDescription: source.seoDescription,
+      slugCustomized: true,
       categoryId: source.categoryId,
       status: "DRAFT",
       isPublished: false,
@@ -486,6 +520,26 @@ export async function duplicateMirrorModelAction(
       updatedById: session.user.id,
     },
   });
+
+  if (sourceImages.length > 0) {
+    await prisma.mirrorModelImage.createMany({
+      data: sourceImages.map((image) => ({
+        modelId: copy.id,
+        kind: image.kind,
+        isPrimary: image.isPrimary,
+        sortOrder: image.sortOrder,
+        altText: image.altText,
+        internalNote: image.internalNote,
+        storageKey: image.storageKey,
+        originalName: image.originalName,
+        mimeType: image.mimeType,
+        widthPx: image.widthPx,
+        heightPx: image.heightPx,
+        byteSize: image.byteSize,
+        uploadedById: session.user.id,
+      })),
+    });
+  }
 
   revalidateCatalog();
   return {
@@ -551,6 +605,42 @@ export async function archiveMirrorModelAction(
   return {
     ok: true,
     message: "Model reactivat ca ciornă. Setați Activ după verificarea calculului.",
+    id: model.id,
+  };
+}
+
+export async function publishMirrorModelAction(input: {
+  id: string;
+  publish: boolean;
+}): Promise<ActionResult> {
+  const session = await requireStaffSession();
+  if (!canManageCatalog(session.user.role)) {
+    return { ok: false, message: "Nu aveți permisiunea de a publica modele." };
+  }
+  const model = await prisma.mirrorModel.findUnique({
+    where: { id: input.id },
+    select: { id: true, status: true, calcStatus: true, retailPrice: true },
+  });
+  if (!model) {
+    return { ok: false, message: "Modelul nu a fost găsit." };
+  }
+  if (input.publish) {
+    const block = publicSaleBlock(model);
+    if (block) {
+      return { ok: false, message: block };
+    }
+  }
+  await prisma.mirrorModel.update({
+    where: { id: model.id },
+    data: {
+      isPublished: input.publish,
+      updatedById: session.user.id,
+    },
+  });
+  revalidateCatalog();
+  return {
+    ok: true,
+    message: input.publish ? "Modelul a fost publicat în magazin." : "Modelul a fost retras din magazin.",
     id: model.id,
   };
 }

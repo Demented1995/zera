@@ -76,10 +76,8 @@ export function resolveLedLength(options: {
   widthMm: number;
   heightMm: number;
   positioning: LedPositioning;
-  /** Manual base length in mm (before 10%). Used when auto is unavailable or overridden. */
+  /** Manual base length in mm (before 10%). Used when auto is unavailable. */
   manualBaseLengthMm?: number | null;
-  /** When true, use manual base even if auto is available (admin override). */
-  useManualOverride?: boolean;
 }): LedLengthComputation | { error: string } {
   const {
     shapeIsRectangular,
@@ -87,24 +85,7 @@ export function resolveLedLength(options: {
     heightMm,
     positioning,
     manualBaseLengthMm,
-    useManualOverride,
   } = options;
-
-  if (useManualOverride) {
-    if (
-      manualBaseLengthMm === null ||
-      manualBaseLengthMm === undefined ||
-      !Number.isFinite(manualBaseLengthMm) ||
-      manualBaseLengthMm <= 0
-    ) {
-      return { error: "Lungime LED manuală invalidă (trebuie > 0 mm)." };
-    }
-    return {
-      ...applyLedLengthSupplement(manualBaseLengthMm),
-      source: "manual",
-      note: "Lungime setată manual (supliment 10% aplicat o singură dată).",
-    };
-  }
 
   if (shapeIsRectangular) {
     const baseMm = computeRectangularLedBaseMm(widthMm, heightMm, positioning);

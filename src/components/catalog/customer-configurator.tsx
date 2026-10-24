@@ -2,17 +2,12 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ConfiguratorFields } from "@/components/catalog/configurator-fields";
 import type {
   CustomerPreviewPayload,
-  PreviewControl,
+  PreviewGalleryImage,
   PreviewPatch,
 } from "@/modules/catalog/preview/types";
-
-const selectClass =
-  "h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm";
 
 type Props = {
   customer: CustomerPreviewPayload;
@@ -27,16 +22,9 @@ export function CustomerConfigurator({
   revision,
   onPatch,
 }: Props) {
-  const controlsBySection = new Map<string, PreviewControl[]>();
-  for (const control of customer.controls) {
-    const list = controlsBySection.get(control.section) ?? [];
-    list.push(control);
-    controlsBySection.set(control.section, list);
-  }
-
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-      <ModelPlaceholder />
+      <ModelVisual gallery={customer.gallery ?? []} />
       <div className="space-y-8">
         <header className="space-y-3">
           <p className="text-xs tracking-[0.22em] text-muted-foreground uppercase">
@@ -51,35 +39,110 @@ export function CustomerConfigurator({
             </p>
           ) : null}
           {customer.model.fullDescription ? (
-            <p className="max-w-xl text-sm leading-6">{customer.model.fullDescription}</p>
+            <p className="max-w-xl text-sm leading-6 whitespace-pre-line">
+              {customer.model.fullDescription}
+            </p>
+          ) : null}
+          {customer.productCopy?.highlights.length ? (
+            <ul className="max-w-xl list-disc space-y-1 pl-5 text-sm leading-6">
+              {customer.productCopy.highlights.map((item, index) => (
+                <li key={`${index}-${item}`}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+          {customer.productCopy?.specs.length ? (
+            <dl className="max-w-xl space-y-2 text-sm">
+              {customer.productCopy.specs.map((spec) => (
+                <div key={spec.label} className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+                  <dt className="text-muted-foreground">{spec.label}</dt>
+                  <dd>{spec.value}</dd>
+                </div>
+              ))}
+            </dl>
           ) : null}
         </header>
 
         <PriceSummary customer={customer} pending={pending} />
 
-        <div className="space-y-8">
-          {customer.sections.map((section) => (
-            <section key={section.id} className="space-y-4">
-              <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                {section.title}
-              </h3>
-              <div className="space-y-4">
-                {(controlsBySection.get(section.id) ?? []).map((control) => (
-                  <ControlField
-                    key={
-                      control.kind === "dimension"
-                        ? `${control.id}-${control.value}-${revision}`
-                        : control.id
-                    }
-                    control={control}
-                    onPatch={onPatch}
-                  />
-                ))}
-              </div>
-            </section>
+        <ProductNotes copy={customer.productCopy} />
+
+        <ConfiguratorFields
+          sections={customer.sections}
+          controls={customer.controls}
+          revision={revision}
+          onPatch={onPatch}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ProductNotes({
+  copy,
+}: {
+  copy: CustomerPreviewPayload["productCopy"];
+}) {
+  if (!copy) {
+    return null;
+  }
+  const notes = [
+    copy.care ? { title: "Întreținere", text: copy.care } : null,
+    copy.warranty ? { title: "Garanție", text: copy.warranty } : null,
+    copy.delivery ? { title: "Producție și livrare", text: copy.delivery } : null,
+  ].filter((note): note is { title: string; text: string } => Boolean(note));
+  if (notes.length === 0) {
+    return null;
+  }
+  return (
+    <div className="max-w-xl space-y-4">
+      {notes.map((note) => (
+        <section key={note.title} className="space-y-1">
+          <h3 className="text-sm font-medium">{note.title}</h3>
+          <p className="text-sm leading-6 whitespace-pre-line text-muted-foreground">{note.text}</p>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ModelVisual({ gallery }: { gallery: PreviewGalleryImage[] }) {
+  const initial = gallery.find((image) => image.isPrimary)?.id ?? gallery[0]?.id ?? null;
+  const [activeId, setActiveId] = useState(initial);
+  const active = gallery.find((image) => image.id === activeId) ?? gallery[0];
+
+  if (!active) {
+    return <ModelPlaceholder />;
+  }
+
+  return (
+    <div className="space-y-3 lg:sticky lg:top-6">
+      <div className="flex aspect-[5/4] max-h-80 items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/40 lg:aspect-[4/5] lg:max-h-none">
+        {/* Authenticated media route; next/image would not forward the staff session. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={active.src}
+          alt={active.alt || "Fotografia modelului"}
+          className="h-full w-full object-contain"
+        />
+      </div>
+      {gallery.length > 1 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {gallery.map((image) => (
+            <button
+              key={image.id}
+              type="button"
+              onClick={() => setActiveId(image.id)}
+              className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border ${
+                image.id === active.id ? "border-foreground" : "border-border"
+              }`}
+              aria-label={image.alt || "Fotografie"}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={image.thumbSrc} alt="" className="h-full w-full object-cover" />
+            </button>
           ))}
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -137,232 +200,6 @@ function PriceSummary({
           ))}
         </ul>
       ) : null}
-    </div>
-  );
-}
-
-function ControlField({
-  control,
-  onPatch,
-}: {
-  control: PreviewControl;
-  onPatch: (patch: PreviewPatch) => void;
-}) {
-  if (control.kind === "text") {
-    return (
-      <div className="flex items-baseline justify-between gap-4 border-b border-border/70 py-2">
-        <span className="text-sm text-muted-foreground">{control.label}</span>
-        <span className="text-right text-sm font-medium">{control.valueLabel}</span>
-      </div>
-    );
-  }
-
-  if (control.kind === "dimension") {
-    return (
-      <DimensionField control={control} onPatch={onPatch} />
-    );
-  }
-
-  if (control.kind === "toggle") {
-    return (
-      <label className="flex items-center justify-between gap-4 py-1">
-        <span className="text-sm">{control.label}</span>
-        <input
-          type="checkbox"
-          className="size-4 accent-foreground"
-          checked={control.value}
-          onChange={(event) =>
-            onPatch({ field: control.field, value: event.target.checked })
-          }
-        />
-      </label>
-    );
-  }
-
-  if (control.kind === "select") {
-    return (
-      <div className="grid gap-1.5">
-        <Label htmlFor={control.id}>{control.label}</Label>
-        {control.options.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
-        ) : (
-          <select
-            id={control.id}
-            className={selectClass}
-            value={control.value}
-            onChange={(event) => {
-              const raw = event.target.value;
-              if (control.numeric) {
-                onPatch({
-                  field: control.field as "frontLightTempK",
-                  value: Number(raw),
-                });
-                return;
-              }
-              onPatch({
-                field: control.field as "shapeId",
-                value: raw,
-              });
-            }}
-          >
-            <option value="" disabled>
-              Alegeți
-            </option>
-            {control.options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-    );
-  }
-
-  if (control.kind === "checks") {
-    return (
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">{control.label}</legend>
-        {control.options.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
-        ) : (
-          control.options.map((option) => {
-            const checked = control.values.includes(option.id);
-            return (
-              <label key={option.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-foreground"
-                  checked={checked}
-                  onChange={(event) => {
-                    const values = event.target.checked
-                      ? [...control.values, option.id]
-                      : control.values.filter((id) => id !== option.id);
-                    onPatch({ field: control.field, value: values });
-                  }}
-                />
-                {option.label}
-              </label>
-            );
-          })
-        )}
-      </fieldset>
-    );
-  }
-
-  return (
-    <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">{control.label}</legend>
-      {control.lines.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
-      ) : (
-        control.lines.map((line) => (
-          <label key={line.type} className="flex items-center justify-between gap-3 text-sm">
-            <span>{line.label}</span>
-            <Input
-              type="number"
-              min={0}
-              step={1}
-              className="h-9 w-24"
-              value={line.qty}
-              onChange={(event) => {
-                const qty = Number(event.target.value);
-                const lines = control.lines.map((item) =>
-                  item.type === line.type
-                    ? { type: item.type, qty: Number.isFinite(qty) ? qty : 0 }
-                    : { type: item.type, qty: item.qty },
-                );
-                onPatch({ field: "cutouts", value: lines.filter((item) => item.qty > 0) });
-              }}
-            />
-          </label>
-        ))
-      )}
-    </fieldset>
-  );
-}
-
-function DimensionField({
-  control,
-  onPatch,
-}: {
-  control: Extract<PreviewControl, { kind: "dimension" }>;
-  onPatch: (patch: PreviewPatch) => void;
-}) {
-  const [draft, setDraft] = useState(String(control.value));
-
-  if (control.mode === "FIXED") {
-    return (
-      <div className="flex items-baseline justify-between gap-4 border-b border-border/70 py-2">
-        <span className="text-sm text-muted-foreground">{control.label}</span>
-        <span className="text-sm font-medium">{control.value} mm</span>
-      </div>
-    );
-  }
-
-  const hint = [
-    control.minMm != null ? `min ${control.minMm} mm` : null,
-    control.maxMm != null ? `max ${control.maxMm} mm` : null,
-    control.stepMm != null ? `pas ${control.stepMm} mm` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  function commit(next: number) {
-    if (!Number.isFinite(next) || next <= 0) {
-      setDraft(String(control.value));
-      return;
-    }
-    setDraft(String(next));
-    onPatch({ field: control.field, value: next });
-  }
-
-  function stepBy(direction: 1 | -1) {
-    const step = control.stepMm && control.stepMm > 0 ? control.stepMm : 1;
-    commit(Number(control.value) + direction * step);
-  }
-
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={control.id}>{control.label}</Label>
-      <div className="flex items-center gap-2">
-        {control.stepMm != null ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => stepBy(-1)}
-            aria-label={`Scade ${control.label}`}
-          >
-            −
-          </Button>
-        ) : null}
-        <Input
-          id={control.id}
-          inputMode="decimal"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => commit(Number(draft.replace(",", ".")))}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              commit(Number(draft.replace(",", ".")));
-            }
-          }}
-        />
-        {control.stepMm != null ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => stepBy(1)}
-            aria-label={`Crește ${control.label}`}
-          >
-            +
-          </Button>
-        ) : null}
-        <span className="text-sm text-muted-foreground">mm</span>
-      </div>
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

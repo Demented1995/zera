@@ -31,12 +31,23 @@ model User {
   mirrorModelsCreated     MirrorModel[]          @relation("MirrorModelCreatedBy")
   mirrorModelsUpdated     MirrorModel[]          @relation("MirrorModelUpdatedBy")
   mirrorCategoriesCreated MirrorModelCategory[]  @relation("MirrorCategoryCreatedBy")
+  mirrorImagesUploaded    MirrorModelImage[]     @relation("MirrorImageUploadedBy")
+  customersCreated        Customer[]             @relation("CustomerCreatedBy")
+  customersUpdated        Customer[]             @relation("CustomerUpdatedBy")
+  ordersPlaced            CustomerOrder[]        @relation("OrderPlacedBy")
+  orderStatusChanges      OrderStatusEvent[]     @relation("OrderStatusChangedBy")
 }
 
 enum ConfigStatus {
   DRAFT
   COMPLETE
   INCOMPLETE
+}
+
+enum MirrorImageKind {
+  SECONDARY
+  DETAIL
+  AMBIENT
 }
 
 enum OfferStatus {
@@ -98,6 +109,9 @@ model CustomerOffer {
   clientEmail          String?
   clientCompany        String?
   clientNotes          String?
+  /// Optional link to the customer registry. Offer name and phone stay on this row.
+  customerId           String?
+  customer             Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
   productName          String
   quantity             Int                @default(1)
   /// wholesale | retail — customer never sees sinecost
@@ -120,6 +134,7 @@ model CustomerOffer {
   @@index([status])
   @@index([issuedAt])
   @@index([number])
+  @@index([customerId])
 }
 
 /// Immutable commercial snapshot for an issued offer revision.
@@ -193,8 +208,21 @@ model MirrorModel {
   name              String
   /// Unique public URL slug (future shop). Validated unique on write.
   slug              String            @unique
+  /// After a manual edit, name changes must not rewrite the slug.
+  slugCustomized    Boolean           @default(false)
   shortDescription  String?
+  /// Plain-text fallback of the Romanian description, kept for search and preview.
   fullDescription   String?
+  /// Sanitized Romanian rich text. Not raw HTML. Russian overlays are not stored yet.
+  descriptionJson   Json?
+  highlightsJson    Json?
+  careJson          Json?
+  warrantyJson      Json?
+  deliveryJson      Json?
+  /// Extra descriptive specs. They never enter the pricing engine.
+  extraSpecsJson    Json?
+  seoTitle          String?
+  seoDescription    String?
   categoryId        String
   category          MirrorModelCategory @relation(fields: [categoryId], references: [id])
   status            MirrorModelStatus @default(DRAFT)
@@ -235,6 +263,10 @@ model MirrorModel {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   offers            CustomerOffer[]
+  orders            CustomerOrder[]
+  orderLines        CustomerOrderLine[]
+  images            MirrorModelImage[]
+  slugRedirects     MirrorModelSlugRedirect[]
 
   @@index([status])
   @@index([categoryId])
@@ -242,6 +274,44 @@ model MirrorModel {
   @@index([name])
   @@index([slug])
   @@index([isPublished])
+}
+
+/// Previous public slug of a published model. The future shop can answer 301 to the current slug.
+model MirrorModelSlugRedirect {
+  id        String      @id @default(cuid())
+  modelId   String
+  model     MirrorModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  slug      String      @unique
+  createdAt DateTime    @default(now())
+
+  @@index([modelId])
+}
+
+/// Product photo for a commercial mirror model. Bytes live in object storage, not in Postgres.
+model MirrorModelImage {
+  id           String          @id @default(cuid())
+  modelId      String
+  model        MirrorModel     @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  kind         MirrorImageKind @default(SECONDARY)
+  isPrimary    Boolean         @default(false)
+  sortOrder    Int             @default(0)
+  altText      String          @default("")
+  /// Internal description. Not exposed on the customer preview.
+  internalNote String          @default("")
+  /// Relative POSIX key `models/{modelId}/{imageId}`. Never an absolute filesystem path.
+  storageKey   String
+  originalName String
+  mimeType     String
+  widthPx      Int
+  heightPx     Int
+  byteSize     Int
+  uploadedById String
+  uploadedBy   User            @relation("MirrorImageUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime        @default(now())
+
+  @@index([modelId, sortOrder])
+  @@index([modelId, isPrimary])
+  @@index([storageKey])
 }
 
 /// Categories for materials, components, and operations (e.g. Manoperă).
@@ -320,4 +390,157 @@ model PricingSettingsHistory {
 
   @@index([changedAt])
   @@index([fieldKey])
+}
+
+enum CustomerKind {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum CustomerStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Customer registry. Offer snapshots keep their own client fields.
+/// Orders may be linked here manually. Placing an order does not create a customer.
+model Customer {
+  id           String         @id @default(cuid())
+  /// Human-readable unique code, e.g. CLT-2026-0001
+  code         String         @unique
+  kind         CustomerKind
+  status       CustomerStatus @default(ACTIVE)
+  displayName  String
+  phone        String
+  /// Digits used only to find possible duplicates. Not a second contact record.
+  phoneKey     String
+  email        String?
+  emailKey     String?
+  companyName  String?
+  idno         String?
+  idnoKey      String?
+  contactName  String?
+  /// Staff-only notes. Never copied onto offers.
+  notes        String?
+  createdById  String
+  createdBy    User           @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  updatedById  String
+  updatedBy    User           @relation("CustomerUpdatedBy", fields: [updatedById], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  addresses    CustomerAddress[]
+  offers       CustomerOffer[]
+  orders       CustomerOrder[]
+
+  @@index([phoneKey])
+  @@index([emailKey])
+  @@index([idnoKey])
+  @@index([status, updatedAt])
+}
+
+model CustomerAddress {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label      String?
+  line       String
+  city       String?
+  postalCode String?
+  isPrimary  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  IN_PRODUCTION
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+/// Customer order. Contact fields and the priced configuration are a snapshot.
+/// Linking customerId does not copy or rewrite those fields.
+model CustomerOrder {
+  id              String       @id @default(cuid())
+  /// Human-readable unique number, e.g. CMD-2026-0001
+  number          String       @unique
+  status          OrderStatus  @default(NEW)
+  customerName    String
+  customerPhone   String
+  /// Digits used only for search. Not a registry record.
+  phoneKey        String
+  deliveryAddress String
+  customerId      String?
+  customer        Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  mirrorModelId   String?
+  mirrorModel     MirrorModel? @relation(fields: [mirrorModelId], references: [id], onDelete: SetNull)
+  modelCode       String
+  modelName       String
+  /// Validated configurator state at placement. Never repriced later.
+  configJson      Json
+  /// Human configuration summary frozen at placement.
+  summaryJson     Json
+  retailPrice     Decimal      @db.Decimal(12, 2)
+  currency        String       @default("MDL")
+  advanceAmount   Decimal      @default(0) @db.Decimal(12, 2)
+  quantity        Int          @default(1)
+  /// Stops a repeated checkout from creating a second order.
+  idempotencyKey  String?      @unique
+  placedById      String?
+  placedBy        User?        @relation("OrderPlacedBy", fields: [placedById], references: [id])
+  placedAt        DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  statusEvents    OrderStatusEvent[]
+  lines           CustomerOrderLine[]
+
+  @@index([status, placedAt])
+  @@index([phoneKey])
+  @@index([customerId])
+}
+
+/// One configured mirror inside an order. Prices are frozen at placement.
+model CustomerOrderLine {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sortOrder     Int
+  mirrorModelId String?
+  mirrorModel   MirrorModel?  @relation(fields: [mirrorModelId], references: [id], onDelete: SetNull)
+  modelCode     String
+  modelName     String
+  imageId       String?
+  configJson    Json
+  summaryJson   Json
+  unitPrice     Decimal       @db.Decimal(12, 2)
+  quantity      Int
+  lineTotal     Decimal       @db.Decimal(12, 2)
+
+  @@index([orderId, sortOrder])
+}
+
+/// Last issued suffix for CFG, OFT, MOD, CLT and CMD numbers.
+/// Allocation is serialized so two requests cannot receive the same code.
+model NumberSequence {
+  name String @id
+  last Int
+}
+
+model OrderStatusEvent {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  note        String?
+  changedById String?
+  changedBy   User?         @relation("OrderStatusChangedBy", fields: [changedById], references: [id])
+  createdAt   DateTime      @default(now())
+
+  @@index([orderId, createdAt])
 }

@@ -24,3 +24,23 @@ export function canManageConfiguratorRules(role: Role): boolean {
 export function canViewConfiguratorRules(role: Role): boolean {
   return role === "ADMIN" || role === "MANAGER";
 }
+
+/** ADMIN uploads, reorders, and deletes product photos. */
+export function canManageModelImages(role: Role): boolean {
+  return role === "ADMIN";
+}
+
+/** Both staff roles may view the gallery. */
+export function canViewModelImages(role: Role): boolean {
+  return role === "ADMIN" || role === "MANAGER";
+}
+
+/** ADMIN edits commercial copy, descriptive specs, and SEO. */
+export function canManageModelContent(role: Role): boolean {
+  return role === "ADMIN";
+}
+
+/** Both staff roles may read descriptions and SEO. */
+export function canViewModelContent(role: Role): boolean {
+  return role === "ADMIN" || role === "MANAGER";
+}

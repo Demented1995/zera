@@ -24,7 +24,7 @@ import {
 } from "@/modules/catalog/status";
 
 export const metadata = {
-  title: "Modele de oglinzi | ZERA",
+  title: "Modele de oglinzi",
 };
 
 type PageProps = {
@@ -103,6 +103,7 @@ export default async function ModelePage({ searchParams }: PageProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Foto</TableHead>
               <TableHead>Cod</TableHead>
               <TableHead>Nume</TableHead>
               <TableHead>Categorie</TableHead>
@@ -119,13 +120,29 @@ export default async function ModelePage({ searchParams }: PageProps) {
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-muted-foreground">
+                <TableCell colSpan={12} className="text-muted-foreground">
                   Niciun model comercial.
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row) => (
                 <TableRow key={row.id}>
+                  <TableCell>
+                    {row.images[0] ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/media/${row.id}/${row.images[0].id}/thumb`}
+                          alt=""
+                          className="h-12 w-12 rounded-md object-cover"
+                        />
+                      </>
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground">
+                        —
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link
                       href={`/admin/modele/${row.id}`}

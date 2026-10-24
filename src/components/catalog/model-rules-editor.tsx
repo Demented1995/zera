@@ -117,9 +117,13 @@ export function ModelRulesEditor({
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-        Reguli pentru viitorul configurator client. Implicit totul este{" "}
-        <span className="font-medium text-foreground">Fix</span> — nu se activează
-        opțiuni publice fără configurare. Modificările nu alterează ofertele emise.
+        Din configurația tehnică se ia baza produsului (formă, LED, sticlă). Aici
+        alegi ce vede clientul pe site.{" "}
+        <span className="font-medium text-foreground">Fix</span> se afișează și nu
+        se poate schimba. <span className="font-medium text-foreground">Editabil</span>{" "}
+        devine opțiune de personalizare, iar prețul se recalculează automat.{" "}
+        <span className="font-medium text-foreground">Ascuns</span> nu apare.
+        Implicit totul este fix. Modificările nu alterează ofertele emise.
         Dimensiuni implicite model: {defaultWidthMm} × {defaultHeightMm} mm.
       </div>
 

@@ -4,7 +4,7 @@ import { requirePageAccess } from "@/lib/auth/guards";
 import { getCompanySettings } from "@/modules/offers/company";
 
 export const metadata = {
-  title: "Setări | ZERA",
+  title: "Setări",
 };
 
 export default async function SetariPage() {

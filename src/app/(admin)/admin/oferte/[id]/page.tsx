@@ -9,7 +9,7 @@ import { getOffer } from "@/modules/offers/queries";
 import { OFFER_STATUS_LABEL } from "@/modules/offers/status";
 
 export const metadata = {
-  title: "Detalii ofertă | ZERA",
+  title: "Detalii ofertă",
 };
 
 type PageProps = {
@@ -67,6 +67,21 @@ export default async function OfferDetailPage({ params }: PageProps) {
           {offer.clientCompany ? (
             <p className="text-muted-foreground">{offer.clientCompany}</p>
           ) : null}
+          {offer.customer ? (
+            <p>
+              Fișă client:{" "}
+              <Link
+                href={`/admin/clienti/${offer.customer.id}`}
+                className="underline-offset-2 hover:underline"
+              >
+                {offer.customer.code} · {offer.customer.displayName}
+              </Link>
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Oferta nu este asociată unei fișe de client. Datele de mai sus rămân pe ofertă.
+            </p>
+          )}
         </div>
         <div className="space-y-1 text-sm">
           <p className="font-medium">Produs</p>

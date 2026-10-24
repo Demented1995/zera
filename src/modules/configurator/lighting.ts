@@ -222,8 +222,6 @@ export type LedSystemResolved = {
   length: LedLengthComputation | null;
   lengthError: string | null;
   seedKey: string | null;
-  overrideHighlight: boolean;
-  overrideReason: string;
 };
 
 export function resolveLedSystem(options: {
@@ -240,16 +238,7 @@ export function resolveLedSystem(options: {
     heightMm: options.heightMm,
     positioning: options.system.positioning,
     manualBaseLengthMm: options.system.manualBaseLengthMm,
-    useManualOverride: options.system.useManualOverride,
   });
-
-  const lengthError =
-    "error" in resolved
-      ? resolved.error
-      : options.system.useManualOverride &&
-          !options.system.manualOverrideReason.trim()
-        ? "Motiv obligatoriu pentru lungimea LED modificată manual."
-        : null;
 
   return {
     side: options.side,
@@ -257,10 +246,8 @@ export function resolveLedSystem(options: {
     temperatureK: options.system.temperatureK,
     positioning: options.system.positioning,
     length: "error" in resolved ? null : resolved,
-    lengthError,
+    lengthError: "error" in resolved ? resolved.error : null,
     seedKey: strip.materialSeedKey,
-    overrideHighlight: options.system.useManualOverride,
-    overrideReason: options.system.manualOverrideReason,
   };
 }
 
@@ -327,11 +314,6 @@ export function buildLightingDetailedComponents(options: {
         `${system.temperatureK}K`,
         `Sursă: ${resolved.length.source}`,
       ];
-      if (resolved.overrideHighlight) {
-        noteParts.push(
-          `OVERRIDE ADMIN: ${resolved.overrideReason || "fără motiv"}`,
-        );
-      }
       if (resolved.length.note) {
         noteParts.push(resolved.length.note);
       }

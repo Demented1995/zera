@@ -14,7 +14,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { PriceHistoryDTO } from "@/modules/materials/types";
 
 export const metadata = {
-  title: "Materiale și componente | ZERA",
+  title: "Materiale și componente",
 };
 
 export default async function MaterialePage() {

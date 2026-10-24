@@ -45,7 +45,7 @@ describe("rectangular LED length formulas (600×1000)", () => {
   });
 });
 
-describe("special shapes & overrides", () => {
+describe("special shapes", () => {
   it("does not auto-use bounding-rect perimeter for special shapes", () => {
     const result = resolveLedLength({
       shapeIsRectangular: false,
@@ -68,27 +68,14 @@ describe("special shapes & overrides", () => {
     assert.ok(!("error" in result));
     assert.equal(result.totalLengthM, 2.2);
     assert.equal(result.source, "manual");
-
-    const overridden = resolveLedLength({
-      shapeIsRectangular: true,
-      widthMm: 600,
-      heightMm: 1000,
-      positioning: "two_height",
-      useManualOverride: true,
-      manualBaseLengthMm: 2500 / 1.1, // base that yields ~2.5 after 10%
-    });
-    assert.ok(!("error" in overridden));
-    // 2500/1.1 ≈ 2272.727 mm → base m rounded, total after 10% once
-    assert.equal(overridden.totalLengthM, applyLedLengthSupplement(2500 / 1.1).totalLengthM);
   });
 
-  it("rejects invalid manual length", () => {
+  it("rejects a missing manual length for a non-rectangular shape", () => {
     const result = resolveLedLength({
-      shapeIsRectangular: true,
+      shapeIsRectangular: false,
       widthMm: 600,
       heightMm: 1000,
       positioning: "two_height",
-      useManualOverride: true,
       manualBaseLengthMm: 0,
     });
     assert.ok("error" in result);

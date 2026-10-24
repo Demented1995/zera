@@ -87,6 +87,7 @@ export async function getOffer(id: string) {
       createdBy: { select: { id: true, name: true, email: true } },
       updatedBy: { select: { id: true, name: true, email: true } },
       configuration: true,
+      customer: { select: { id: true, code: true, displayName: true } },
       revisions: {
         orderBy: { revisionNumber: "desc" },
         include: {

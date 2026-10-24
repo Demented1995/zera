@@ -300,39 +300,6 @@ export const configuratorInputSchema = z
     extraComponents: z.array(extraSchema).default([]),
     processing: processingSchema.optional(),
     commercial: commercialSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    const checkOverride = (
-      system: z.infer<typeof ledSystemSchema> | undefined,
-      path: string,
-    ) => {
-      if (!system?.useManualOverride) {
-        return;
-      }
-      if (!system.manualOverrideReason.trim()) {
-        ctx.addIssue({
-          code: "custom",
-          path: [path, "manualOverrideReason"],
-          message: "Motivul este obligatoriu pentru override-ul lungimii LED.",
-        });
-      }
-      if (
-        system.manualBaseLengthMm === null ||
-        system.manualBaseLengthMm === undefined
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: [path, "manualBaseLengthMm"],
-          message: "Lungimea de bază (mm) este obligatorie la override.",
-        });
-      }
-    };
-    if (value.lightingType === "front" || value.lightingType === "both") {
-      checkOverride(value.frontLed, "frontLed");
-    }
-    if (value.lightingType === "back" || value.lightingType === "both") {
-      checkOverride(value.backLed, "backLed");
-    }
   });
 
 export type ConfiguratorInputValues = z.infer<typeof configuratorInputSchema>;

@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { signIn, signOut } from "@/lib/auth";
+import { safeStaffCallback } from "@/modules/auth/callback";
 
 export type LoginState = {
   error?: string;
@@ -25,7 +26,7 @@ export async function loginAction(
     await signIn("credentials", {
       email,
       password,
-      redirectTo: callbackUrl.startsWith("/") ? callbackUrl : "/admin",
+      redirectTo: safeStaffCallback(callbackUrl),
     });
   } catch (error) {
     if (error instanceof AuthError) {

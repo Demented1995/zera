@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
 
 export const metadata = {
-  title: "Dashboard | ZERA",
+  title: "Dashboard",
 };
 
 export default function AdminDashboardPage() {

@@ -9,7 +9,7 @@ import { loadMirrorPreview } from "@/modules/catalog/preview/service";
 import { MODEL_STATUS_LABEL } from "@/modules/catalog/status";
 
 export const metadata = {
-  title: "Previzualizare client | ZERA",
+  title: "Previzualizare client",
 };
 
 type PageProps = {

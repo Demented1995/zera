@@ -34,8 +34,10 @@ import { getShapeById } from "@/modules/configurator/shapes";
 import type {
   AdminPreviewDiagnostic,
   CustomerPreviewPayload,
+  PreviewProductCopy,
   PreviewChoice,
   PreviewControl,
+  PreviewGalleryImage,
   PreviewSection,
 } from "@/modules/catalog/preview/types";
 
@@ -974,6 +976,8 @@ export function assembleMirrorPreview(input: {
   priceSource: PriceSource;
   blockers: string[];
   includeDiagnostic: boolean;
+  gallery?: PreviewGalleryImage[];
+  productCopy?: PreviewProductCopy;
 }): {
   customer: CustomerPreviewPayload;
   diagnostic: AdminPreviewDiagnostic | null;
@@ -989,6 +993,8 @@ export function assembleMirrorPreview(input: {
       fullDescription: input.model.fullDescription,
       status: input.model.status,
     },
+    gallery: input.gallery ?? [],
+    productCopy: input.productCopy,
     sections: sectionsFrom(controls),
     controls,
     selection: selectionFromStates(input.modelDefault, config),

@@ -17,7 +17,7 @@ import { ConfigurationsFilters } from "@/components/offers/configurations-filter
 import { ConfigRowActions } from "@/components/offers/config-row-actions";
 
 export const metadata = {
-  title: "Configurații salvate | ZERA",
+  title: "Configurații salvate",
 };
 
 type PageProps = {

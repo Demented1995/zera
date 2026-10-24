@@ -6,7 +6,7 @@ import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { getSavedConfiguration } from "@/modules/offers/queries";
 
 export const metadata = {
-  title: "Configurator profesional | ZERA",
+  title: "Configurator profesional",
 };
 
 type PageProps = {
@@ -50,7 +50,6 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
         description="Configurare oglinzi, salvare, oferte. Modelele comerciale se gestionează separat în Modele de oglinzi."
       />
       <ConfiguratorWorkspace
-        canOverrideLedLength={isAdmin}
         canEditTariffs={isAdmin}
         initialConfigId={initialConfigId}
         initialConfigCode={initialConfigCode}

@@ -15,7 +15,7 @@ import {
 } from "@/modules/pricing/serialize";
 
 export const metadata = {
-  title: "Prețuri și formule | ZERA",
+  title: "Prețuri și formule",
 };
 
 export default async function PreturiPage() {

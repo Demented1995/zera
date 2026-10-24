@@ -1,7 +1,7 @@
 import { ModulePlaceholder } from "@/components/admin/module-placeholder";
 
 export const metadata = {
-  title: "Media | ZERA",
+  title: "Media",
 };
 
 export default function MediaPage() {

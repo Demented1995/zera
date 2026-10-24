@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { canManageCatalog } from "@/modules/catalog/permissions";
 
 export const metadata = {
-  title: "Categorii comerciale | ZERA",
+  title: "Categorii comerciale",
 };
 
 export default async function CategoriiPage() {

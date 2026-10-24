@@ -1,7 +1,13 @@
+import type { RichDocument } from "@/modules/catalog/content/document";
 import type { CustomerConfigRequest } from "@/modules/catalog/rules/types";
 import type { FeatureMode } from "@/modules/catalog/rules/types";
 
-export type PreviewChoice = { id: string; label: string };
+export type PreviewChoice = {
+  id: string;
+  label: string;
+  /** Retail difference versus the model's included choice. Null when that option cannot be priced. */
+  supplementMdl?: number | null;
+};
 
 type ControlBase = {
   id: string;
@@ -78,6 +84,34 @@ export type PreviewSection = {
   title: string;
 };
 
+export type PreviewGalleryImage = {
+  id: string;
+  alt: string;
+  src: string;
+  thumbSrc: string;
+  isPrimary: boolean;
+};
+
+export type PreviewProductCopy = {
+  highlights: string[];
+  specs: Array<{ label: string; value: string }>;
+  /** Descriptive specs that are not part of the configurator or the price. */
+  extraSpecs: Array<{ id: string; label: string; value: string }>;
+  care: string | null;
+  warranty: string | null;
+  delivery: string | null;
+  description: RichDocument;
+  highlightsDocument: RichDocument;
+  careDocument: RichDocument;
+  warrantyDocument: RichDocument;
+  deliveryDocument: RichDocument;
+  seo: {
+    title: string | null;
+    description: string | null;
+    slug: string;
+  };
+};
+
 export type CustomerPreviewPayload = {
   model: {
     id: string;
@@ -87,6 +121,8 @@ export type CustomerPreviewPayload = {
     fullDescription: string | null;
     status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   };
+  gallery: PreviewGalleryImage[];
+  productCopy?: PreviewProductCopy;
   sections: PreviewSection[];
   controls: PreviewControl[];
   /** Delta față de configurația implicită a modelului. Fără prețuri. */

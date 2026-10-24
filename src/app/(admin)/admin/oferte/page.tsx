@@ -15,7 +15,7 @@ import { listOffers } from "@/modules/offers/queries";
 import { OFFER_STATUS_LABEL } from "@/modules/offers/status";
 
 export const metadata = {
-  title: "Oferte | ZERA",
+  title: "Oferte",
 };
 
 function money(value: { toString(): string } | null | undefined): string {
