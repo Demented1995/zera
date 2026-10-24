@@ -8,6 +8,10 @@ import {
 } from "@/modules/configurator/lighting";
 import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
 import {
+  defaultProcessingConfig,
+  type ProcessingConfig,
+} from "@/modules/configurator/processing";
+import {
   MATERIAL_SEED_KEYS,
   type CatalogMaterial,
   type PricingRules,
@@ -56,6 +60,13 @@ const materials: CatalogMaterial[] = [
     unitOfMeasure: "bucată",
     isActive: true,
   },
+  {
+    seedKey: MATERIAL_SEED_KEYS.sandblast,
+    name: "Sablare",
+    unitPrice: 600,
+    unitOfMeasure: "m²",
+    isActive: true,
+  },
 ];
 
 function state(
@@ -65,6 +76,7 @@ function state(
     heightMm: number;
     glassTypeId: string;
     lighting: LightingConfig;
+    processing: ProcessingConfig;
   }> = {},
 ) {
   return {
@@ -74,6 +86,7 @@ function state(
     glassTypeId: "standard",
     manualEdgeAddsMm: { left: 0, right: 0, top: 0, bottom: 0 },
     lighting: defaultLightingConfig(),
+    processing: defaultProcessingConfig(),
     ...overrides,
   };
 }
@@ -335,5 +348,151 @@ describe("configurator Stage 5.2 lighting", () => {
     assert.equal(quote.calculation?.electrical?.frontLed, 88);
     // Glass still uses special formula
     assert.equal(quote.calculation?.glassCost, 500.5);
+  });
+});
+
+describe("configurator Stage 5.3 processing", () => {
+  it("sandblast 0.06 m² → 100 MDL minimum", () => {
+    const processing = defaultProcessingConfig();
+    processing.sandblastFinish = "standard";
+    processing.sandblastAreaM2 = 0.06;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.operationCosts, 100);
+    assert.equal(quote.calculation?.processing?.sandblast, 100);
+    assert.equal(quote.calculation?.glassCost, 360);
+    assert.equal(quote.calculation?.status, "COMPLETE");
+  });
+
+  it("sandblast 0.20 m² → 120 MDL", () => {
+    const processing = defaultProcessingConfig();
+    processing.sandblastFinish = "standard";
+    processing.sandblastAreaM2 = 0.2;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.operationCosts, 120);
+  });
+
+  it("touch without decorative sandblast → no sandblast operation", () => {
+    const lighting = defaultLightingConfig();
+    lighting.lightingType = "front";
+    lighting.switches = [{ type: "touch", qty: 1, associatedSystem: "front" }];
+    const quote = quoteConfigurator({
+      state: state({ lighting }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.operationCosts, 0);
+    assert.equal(
+      quote.calculation?.lines.some((line) => line.kind === "OPERATION"),
+      false,
+    );
+    assert.equal(quote.calculation?.electrical?.switches, 100);
+  });
+
+  it("touch + decorative sandblast are distinct costs", () => {
+    const lighting = defaultLightingConfig();
+    lighting.lightingType = "front";
+    lighting.switches = [{ type: "touch", qty: 1, associatedSystem: "front" }];
+    const processing = defaultProcessingConfig();
+    processing.sandblastFinish = "standard";
+    processing.sandblastAreaM2 = 0.2;
+    const quote = quoteConfigurator({
+      state: state({ lighting, processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.electrical?.switches, 100);
+    assert.equal(quote.calculation?.operationCosts, 120);
+    assert.equal(
+      quote.calculation?.totalProductionCost,
+      360 + 88 + 100 + 120,
+    );
+  });
+
+  it("two sandblast bands apply minimum once", () => {
+    const processing = defaultProcessingConfig();
+    processing.sandblastFinish = "standard";
+    processing.sandblastAreaMode = "bands";
+    processing.sandblastBands = [
+      { count: 1, lengthMm: 200, widthMm: 150 }, // 0.03 m²
+      { count: 1, lengthMm: 200, widthMm: 150 }, // 0.03 m² → total 0.06
+    ];
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.meta.sandblastAreaM2, 0.06);
+    assert.equal(quote.calculation?.operationCosts, 100);
+    assert.equal(
+      quote.calculation?.lines.filter((line) => line.kind === "OPERATION")
+        .length,
+      1,
+    );
+  });
+
+  it("defog without film price → INCOMPLETE", () => {
+    const processing = defaultProcessingConfig();
+    processing.defogEnabled = true;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "INCOMPLETE");
+    assert.equal(quote.calculation?.wholesalePrice, null);
+    assert.ok(
+      quote.blockers.some((item) =>
+        item.toLowerCase().includes("dezaburire"),
+      ),
+    );
+  });
+
+  it("frame without tariff → INCOMPLETE", () => {
+    const processing = defaultProcessingConfig();
+    processing.frameType = "aluminium-rectangular";
+    processing.frameConsumptionQty = 3.2;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "INCOMPLETE");
+    assert.ok(quote.blockers.some((item) => item.includes("Ramă")));
+  });
+
+  it("facet without tariff → INCOMPLETE", () => {
+    const processing = defaultProcessingConfig();
+    processing.facetEnabled = true;
+    processing.facetLengthM = 2;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "INCOMPLETE");
+    assert.ok(quote.blockers.some((item) => item.includes("Fațetă")));
+  });
+
+  it("preserves Stage 5.1–5.2 glass and LED calcs with processing none", () => {
+    const lighting = defaultLightingConfig();
+    lighting.lightingType = "front";
+    lighting.front.positioning = "two_height";
+    const quote = quoteConfigurator({
+      state: state({ lighting }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.glassCost, 360);
+    assert.equal(quote.ledSystems[0]?.length?.totalLengthM, 2.2);
+    assert.equal(quote.calculation?.electrical?.frontLed, 88);
+    assert.equal(quote.calculation?.status, "COMPLETE");
   });
 });

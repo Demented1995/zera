@@ -37,6 +37,7 @@ export function SummaryPanel({
 }: SummaryPanelProps) {
   const calc = quote?.calculation ?? null;
   const electrical = calc?.electrical;
+  const processing = calc?.processing;
   const status = validationMessage
     ? "INVALID"
     : !quote
@@ -49,14 +50,29 @@ export function SummaryPanel({
     LIGHTING_TYPES.find((item) => item.id === quote?.lighting.lightingType)
       ?.label ?? "—";
 
+  const hasProcessingCosts =
+    processing != null &&
+    [
+      processing.sandblast,
+      processing.facets,
+      processing.engraving,
+      processing.defog,
+      processing.frames,
+      processing.mounting,
+      processing.cutouts,
+      processing.accessories,
+      processing.branding,
+    ].some((value) => value !== 0 || value === null);
+
   return (
     <aside className="space-y-4 rounded-xl border border-border bg-card p-5 lg:sticky lg:top-20">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Sumar</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Cost sticlă + electric / LED pe regulile confirmate. Sinecost
-            complet doar când toate costurile necesare sunt disponibile.
+            Cost sticlă, LED/electric și prelucrări pe regulile confirmate.
+            Sinecost/en-gros/retail doar când toate costurile necesare există —
+            INCOMPLETE nu e preț final.
           </p>
         </div>
         <StatusBadge status={status} pending={pending} />
@@ -158,14 +174,44 @@ export function SummaryPanel({
         </dl>
       ) : null}
 
+      {hasProcessingCosts ? (
+        <dl className="grid gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+          <p className="font-medium text-foreground">Prelucrări / accesorii</p>
+          <Row label="Sablare" value={money(processing?.sandblast)} />
+          <Row label="Fațete" value={money(processing?.facets)} />
+          <Row label="Gravură" value={money(processing?.engraving)} />
+          <Row label="Dezaburire" value={money(processing?.defog)} />
+          <Row label="Rame" value={money(processing?.frames)} />
+          <Row label="Fixare" value={money(processing?.mounting)} />
+          <Row label="Găuri / decupaje" value={money(processing?.cutouts)} />
+          <Row label="Accesorii" value={money(processing?.accessories)} />
+          <Row label="Branding / protecție" value={money(processing?.branding)} />
+          <Row label="Total prelucrări" value={money(processing?.total)} />
+        </dl>
+      ) : null}
+
       {quote ? (
         <dl className="grid gap-2 text-sm">
           <Row
             label="Sinecost producție"
-            value={money(calc?.totalProductionCost)}
+            value={
+              calc?.status === "COMPLETE"
+                ? money(calc?.totalProductionCost)
+                : "—"
+            }
           />
-          <Row label="En-gros" value={money(calc?.wholesalePrice)} />
-          <Row label="Retail" value={money(calc?.retailPrice)} />
+          <Row
+            label="En-gros"
+            value={
+              calc?.status === "COMPLETE" ? money(calc?.wholesalePrice) : "—"
+            }
+          />
+          <Row
+            label="Retail"
+            value={
+              calc?.status === "COMPLETE" ? money(calc?.retailPrice) : "—"
+            }
+          />
         </dl>
       ) : null}
 

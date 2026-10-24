@@ -49,7 +49,7 @@ export type ComponentQuantities = {
 export type DetailedComponentLine = {
   key: string;
   label: string;
-  /** Catalog seed key; null means unpriced / unconfigured. */
+  /** Catalog seed key; null means unpriced / unconfigured (unless unitPriceOverride). */
   seedKey: string | null;
   quantity: number;
   unit: string;
@@ -59,10 +59,37 @@ export type DetailedComponentLine = {
     | "switch"
     | "transformer"
     | "accessory"
-    | "other";
+    | "other"
+    | "sandblast"
+    | "facet"
+    | "engraving"
+    | "defog"
+    | "frame"
+    | "mounting"
+    | "cutout"
+    | "product-accessory"
+    | "branding";
   note?: string;
   /** When true and unpriced, marks calculation INCOMPLETE. */
   required?: boolean;
+  /**
+   * Explicit admin-configured unit price (e.g. engraving).
+   * Used only when seedKey is null — never invents catalog rates.
+   */
+  unitPriceOverride?: number | null;
+};
+
+export type ProcessingCostBreakdown = {
+  sandblast: number | null;
+  facets: number | null;
+  engraving: number | null;
+  defog: number | null;
+  frames: number | null;
+  mounting: number | null;
+  cutouts: number | null;
+  accessories: number | null;
+  branding: number | null;
+  total: number | null;
 };
 
 export type CalculationInput = {
@@ -147,6 +174,7 @@ export type CalculationResult = {
   missingCosts: string[];
   lines: CostLine[];
   electrical?: ElectricalCostBreakdown;
+  processing?: ProcessingCostBreakdown;
   meta: {
     calcWidthMm: number | null;
     calcHeightMm: number | null;

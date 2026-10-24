@@ -10,6 +10,10 @@ import {
 } from "@/modules/configurator/lighting";
 import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
+import {
+  defaultProcessingConfig,
+  type ProcessingConfig,
+} from "@/modules/configurator/processing";
 import { configuratorInputSchema } from "@/modules/configurator/schemas";
 import {
   getPricingSettings,
@@ -63,6 +67,53 @@ function toLightingConfig(
   };
 }
 
+function toProcessingConfig(
+  values: ReturnType<typeof configuratorInputSchema.parse>,
+): ProcessingConfig {
+  const base = defaultProcessingConfig();
+  const incoming = values.processing;
+  if (!incoming) {
+    return base;
+  }
+
+  const accessoriesById = new Map(
+    incoming.accessories.map((item) => [item.id, item]),
+  );
+  const brandingById = new Map(
+    incoming.branding.map((item) => [item.id, item]),
+  );
+
+  return {
+    ...base,
+    ...incoming,
+    sandblastBands:
+      incoming.sandblastBands.length > 0
+        ? incoming.sandblastBands
+        : base.sandblastBands,
+    mountingComponents:
+      incoming.mountingComponents.length > 0
+        ? incoming.mountingComponents
+        : base.mountingComponents,
+    accessories: base.accessories.map((item) => {
+      const next = accessoriesById.get(item.id);
+      return next
+        ? {
+            id: next.id,
+            enabled: next.enabled,
+            qty: next.qty,
+            note: next.note,
+          }
+        : item;
+    }),
+    branding: base.branding.map((item) => {
+      const next = brandingById.get(item.id);
+      return next
+        ? { id: next.id, enabled: next.enabled, qty: next.qty }
+        : item;
+    }),
+  };
+}
+
 export async function runConfiguratorQuoteAction(
   raw: unknown,
 ): Promise<ConfiguratorActionResult> {
@@ -72,7 +123,7 @@ export async function runConfiguratorQuoteAction(
   if (!parsed.success) {
     return {
       ok: false,
-      message: "Verificați forma, dimensiunile și iluminarea.",
+      message: "Verificați forma, dimensiunile, iluminarea și prelucrările.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<
         string,
         string[]
@@ -99,6 +150,7 @@ export async function runConfiguratorQuoteAction(
         bottom: values.edgeBottomMm,
       },
       lighting: toLightingConfig(values),
+      processing: toProcessingConfig(values),
     },
     materials,
     rules: toPricingRules(settings),

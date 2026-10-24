@@ -10,6 +10,18 @@ import {
   LIGHTING_TYPES,
   SWITCH_TYPES,
 } from "@/modules/configurator/lighting";
+import {
+  BRANDING_OPTIONS,
+  CUTOUT_TYPES,
+  DEFOG_CONTROLS,
+  DEFOG_SIZES,
+  FACET_SHAPES,
+  FACET_WIDTHS,
+  FRAME_TYPES,
+  MOUNTING_TYPES,
+  PRODUCT_ACCESSORIES,
+  SANDBLAST_FINISHES,
+} from "@/modules/configurator/processing";
 import { CONFIGURATOR_SHAPES } from "@/modules/configurator/shapes";
 
 const shapeIds = CONFIGURATOR_SHAPES.map((shape) => shape.id) as [
@@ -51,6 +63,44 @@ const extraIds = EXTRA_COMPONENTS.map((item) => item.id) as [
   ...Array<(typeof EXTRA_COMPONENTS)[number]["id"]>,
 ];
 
+const sandblastFinishIds = SANDBLAST_FINISHES.map((item) => item.id) as [
+  "none",
+  ...Array<"none" | "standard" | "painted" | "laser">,
+];
+const facetShapeIds = FACET_SHAPES.map((item) => item.id) as [
+  "straight",
+  ...Array<"straight" | "curved">,
+];
+const facetWidthIds = FACET_WIDTHS as [10, ...Array<10 | 15 | 20>];
+const defogSizeIds = DEFOG_SIZES.map((item) => item.id) as [
+  "300x400",
+  ...Array<"300x400" | "400x500">,
+];
+const defogControlIds = DEFOG_CONTROLS.map((item) => item.id) as [
+  "mechanical",
+  ...Array<"mechanical" | "touch">,
+];
+const frameTypeIds = FRAME_TYPES.map((item) => item.id) as [
+  "none",
+  ...Array<(typeof FRAME_TYPES)[number]["id"]>,
+];
+const mountingTypeIds = MOUNTING_TYPES.map((item) => item.id) as [
+  "standard",
+  ...Array<"standard" | "with-frame">,
+];
+const cutoutTypeIds = CUTOUT_TYPES.map((item) => item.id) as [
+  "hole-le-50",
+  ...Array<(typeof CUTOUT_TYPES)[number]["id"]>,
+];
+const productAccessoryIds = PRODUCT_ACCESSORIES.map((item) => item.id) as [
+  "clock",
+  ...Array<(typeof PRODUCT_ACCESSORIES)[number]["id"]>,
+];
+const brandingIds = BRANDING_OPTIONS.map((item) => item.id) as [
+  "logo-lit",
+  ...Array<(typeof BRANDING_OPTIONS)[number]["id"]>,
+];
+
 const nonNeg = z.coerce.number().finite().min(0, "Valoarea trebuie să fie ≥ 0");
 
 const ledSystemSchema = z.object({
@@ -85,6 +135,88 @@ const extraSchema = z.object({
   side: z.enum(["front", "back", "shared"]),
 });
 
+const nullableNonNeg = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.coerce.number().finite().min(0).nullable(),
+);
+
+const processingSchema = z.object({
+  sandblastFinish: z.enum(sandblastFinishIds).default("none"),
+  sandblastAreaMode: z.enum(["direct", "bands"]).default("direct"),
+  sandblastAreaM2: nonNeg.default(0),
+  sandblastBands: z
+    .array(
+      z.object({
+        count: z.coerce.number().finite().int().min(0),
+        lengthMm: nonNeg,
+        widthMm: nonNeg,
+      }),
+    )
+    .default([]),
+  facetEnabled: z.coerce.boolean().default(false),
+  facetShape: z.enum(facetShapeIds).default("straight"),
+  facetWidthMm: z.coerce
+    .number()
+    .refine(
+      (value): value is 10 | 15 | 20 =>
+        (facetWidthIds as number[]).includes(value),
+      "Lățime fațetă invalidă",
+    )
+    .default(10),
+  facetLengthM: nonNeg.default(0),
+  engravingEnabled: z.coerce.boolean().default(false),
+  engravingDescription: z.string().max(500).default(""),
+  engravingQty: z.coerce.number().finite().int().min(0).default(1),
+  engravingUnitCost: nullableNonNeg,
+  defogEnabled: z.coerce.boolean().default(false),
+  defogSize: z.enum(defogSizeIds).default("300x400"),
+  defogControl: z.enum(defogControlIds).default("mechanical"),
+  defogQty: z.coerce.number().finite().int().min(0).default(1),
+  frameType: z.enum(frameTypeIds).default("none"),
+  frameConsumptionQty: nonNeg.default(0),
+  mountingType: z.enum(mountingTypeIds).default("standard"),
+  mountingComponents: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(200),
+        qty: nonNeg,
+        materialSeedKey: z.string().nullable(),
+      }),
+    )
+    .default([]),
+  cutouts: z
+    .array(
+      z.object({
+        type: z.enum(cutoutTypeIds),
+        qty: z.coerce.number().finite().int().min(0),
+        diameterMm: nullableNonNeg,
+        widthMm: nullableNonNeg,
+        heightMm: nullableNonNeg,
+      }),
+    )
+    .default([]),
+  accessories: z
+    .array(
+      z.object({
+        id: z.enum(productAccessoryIds),
+        enabled: z.coerce.boolean(),
+        qty: z.coerce.number().finite().min(0),
+        note: z.string().max(300).default(""),
+      }),
+    )
+    .default([]),
+  branding: z
+    .array(
+      z.object({
+        id: z.enum(brandingIds),
+        enabled: z.coerce.boolean(),
+        qty: z.coerce.number().finite().min(0),
+      }),
+    )
+    .default([]),
+});
+
 export const configuratorInputSchema = z
   .object({
     shapeId: z.enum(shapeIds),
@@ -108,6 +240,7 @@ export const configuratorInputSchema = z
     transformerPcs: z.coerce.number().finite().int().min(0).default(0),
     electricalConnection: z.enum(connectionIds).default("direct-cable"),
     extraComponents: z.array(extraSchema).default([]),
+    processing: processingSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const checkOverride = (

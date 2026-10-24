@@ -1,5 +1,7 @@
 import {
   MATERIAL_SEED_KEYS,
+  computeGlassArea,
+  resolveCurvedEdgeAddsMm,
   type CalculationInput,
   type CalculationResult,
   type CatalogMaterial,
@@ -18,6 +20,11 @@ import {
   type LightingConfig,
 } from "@/modules/configurator/lighting";
 import {
+  buildProcessingDetailedComponents,
+  defaultProcessingConfig,
+  type ProcessingConfig,
+} from "@/modules/configurator/processing";
+import {
   getShapeById,
   type ConfiguratorShape,
 } from "@/modules/configurator/shapes";
@@ -30,6 +37,7 @@ export type ConfiguratorState = {
   /** Manual mm adds — used when shape.edgeMode === "manual". */
   manualEdgeAddsMm: CurvedEdgeAddsMm;
   lighting: LightingConfig;
+  processing: ProcessingConfig;
 };
 
 export type ConfiguratorQuote = {
@@ -38,6 +46,7 @@ export type ConfiguratorQuote = {
   widthMm: number;
   heightMm: number;
   lighting: LightingConfig;
+  processing: ProcessingConfig;
   ledSystems: LedSystemResolved[];
   /** Human-readable blockers before/alongside engine (e.g. unconfirmed shape formula). */
   blockers: string[];
@@ -74,7 +83,7 @@ export function buildCalculationInput(options: {
   glassType: ConfiguratorGlassType;
   materials: CatalogMaterial[];
   rules: PricingRules;
-}): CalculationInput | { error: string; lightingBlockers?: string[] } {
+}): CalculationInput | { error: string } {
   const { state, shape, glassType, materials, rules } = options;
 
   if (!shape.engineShape) {
@@ -102,12 +111,31 @@ export function buildCalculationInput(options: {
     };
   }
 
+  const curvedAdds =
+    explicitCurvedEdgeAddsMm ??
+    resolveCurvedEdgeAddsMm(curvedEdges, rules.curvedEdgeAddMm);
+
+  const glassArea = computeGlassArea({
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+    shape: shape.engineShape,
+    curvedEdgeAdds: curvedAdds,
+  });
+
   const shapeIsRectangular = shape.engineShape === "RECTANGLE";
   const lightingBuilt = buildLightingDetailedComponents({
     lighting: state.lighting,
     shapeIsRectangular,
     widthMm: state.widthMm,
     heightMm: state.heightMm,
+  });
+
+  const processingBuilt = buildProcessingDetailedComponents({
+    processing: state.processing,
+    shapeIsRectangular,
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+    glassAreaM2: glassArea.areaM2,
   });
 
   return {
@@ -118,8 +146,11 @@ export function buildCalculationInput(options: {
     explicitCurvedEdgeAddsMm,
     // Aggregated fields stay at 0 — LED/switches/transformers come via detailedComponents.
     components: { ledMeters: 0, transformerPcs: 0, touchPcs: 0 },
-    detailedComponents: lightingBuilt.detailedComponents,
-    decorativeSandblastAreaM2: 0,
+    detailedComponents: [
+      ...lightingBuilt.detailedComponents,
+      ...processingBuilt.detailedComponents,
+    ],
+    decorativeSandblastAreaM2: processingBuilt.decorativeSandblastAreaM2,
     materials: applyGlassTypeToCatalog(materials, glassType),
     rules,
   };
@@ -137,6 +168,7 @@ function emptyQuoteShell(options: {
     widthMm: options.state.widthMm,
     heightMm: options.state.heightMm,
     lighting: options.state.lighting,
+    processing: options.state.processing,
     ledSystems: [],
     blockers: options.blockers,
     calculation: null,
@@ -149,7 +181,8 @@ export function quoteConfigurator(options: {
   rules: PricingRules;
 }): ConfiguratorQuote {
   const lighting = options.state.lighting ?? defaultLightingConfig();
-  const state: ConfiguratorState = { ...options.state, lighting };
+  const processing = options.state.processing ?? defaultProcessingConfig();
+  const state: ConfiguratorState = { ...options.state, lighting, processing };
   const shape = getShapeById(state.shapeId);
   const glassType = getGlassTypeById(state.glassTypeId);
   const blockers: string[] = [];
@@ -204,6 +237,31 @@ export function quoteConfigurator(options: {
   });
   blockers.push(...lightingBuilt.blockers);
 
+  const curvedAdds =
+    shape.edgeMode === "manual"
+      ? state.manualEdgeAddsMm
+      : resolveCurvedEdgeAddsMm(
+          shape.edgeMode === "preset" && shape.presetEdges
+            ? shape.presetEdges
+            : { left: false, right: false, top: false, bottom: false },
+          options.rules.curvedEdgeAddMm,
+        );
+  const glassPreview = computeGlassArea({
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+    shape: shape.engineShape,
+    curvedEdgeAdds: curvedAdds,
+  });
+
+  const processingBuilt = buildProcessingDetailedComponents({
+    processing,
+    shapeIsRectangular,
+    widthMm: state.widthMm,
+    heightMm: state.heightMm,
+    glassAreaM2: glassPreview.areaM2,
+  });
+  blockers.push(...processingBuilt.blockers);
+
   const input = buildCalculationInput({
     state,
     shape,
@@ -220,6 +278,7 @@ export function quoteConfigurator(options: {
       widthMm: state.widthMm,
       heightMm: state.heightMm,
       lighting,
+      processing,
       ledSystems: lightingBuilt.ledSystems,
       blockers,
       calculation: null,
@@ -246,14 +305,16 @@ export function quoteConfigurator(options: {
     calculation.totalProductionCost = null;
   }
 
-  // Lighting length / association blockers keep full pricing incomplete
-  // even when LED unit prices exist.
-  if (lightingBuilt.blockers.length > 0) {
+  const configBlockers = [
+    ...lightingBuilt.blockers,
+    ...processingBuilt.blockers,
+  ];
+  if (configBlockers.length > 0) {
     calculation.status = "INCOMPLETE";
     calculation.wholesalePrice = null;
     calculation.retailPrice = null;
     calculation.totalProductionCost = null;
-    for (const blocker of lightingBuilt.blockers) {
+    for (const blocker of configBlockers) {
       if (!calculation.missingCosts.includes(blocker)) {
         calculation.missingCosts.push(blocker);
       }
@@ -266,6 +327,7 @@ export function quoteConfigurator(options: {
     widthMm: state.widthMm,
     heightMm: state.heightMm,
     lighting,
+    processing,
     ledSystems: lightingBuilt.ledSystems,
     blockers,
     calculation,
