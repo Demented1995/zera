@@ -20,4 +20,56 @@ model User {
   role         Role     @default(MANAGER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  materialPriceChanges MaterialPriceHistory[]
+}
+
+/// Categories for materials, components, and operations (e.g. Manoperă).
+model MaterialCategory {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  isActive  Boolean    @default(true)
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  materials Material[]
+}
+
+model Material {
+  id            String           @id @default(cuid())
+  name          String
+  /// Optional internal SKU/code; unique when present.
+  internalCode  String?          @unique
+  /// Stable seed key for idempotent seeds (not shown as business field).
+  seedKey       String?          @unique
+  categoryId    String
+  category      MaterialCategory @relation(fields: [categoryId], references: [id])
+  /// Unit price in MDL. Null means unset — never treat as 0.
+  unitPrice     Decimal?         @db.Decimal(12, 2)
+  unitOfMeasure String
+  currency      String           @default("MDL")
+  description   String?
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  priceHistory  MaterialPriceHistory[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([name])
+}
+
+/// Immutable price change log. No updates/deletes from the application UI.
+model MaterialPriceHistory {
+  id            String    @id @default(cuid())
+  materialId    String
+  material      Material  @relation(fields: [materialId], references: [id])
+  previousPrice Decimal?  @db.Decimal(12, 2)
+  newPrice      Decimal?  @db.Decimal(12, 2)
+  changedAt     DateTime  @default(now())
+  changedById   String
+  changedBy     User      @relation(fields: [changedById], references: [id])
+
+  @@index([materialId, changedAt])
 }
