@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { CommercialSections } from "@/components/configurator/commercial-sections";
+import { ConfigToolbar } from "@/components/configurator/config-toolbar";
 import { LightingSection } from "@/components/configurator/lighting-section";
 import { ProcessingSections } from "@/components/configurator/processing-sections";
 import { SummaryPanel } from "@/components/configurator/summary-panel";
@@ -18,7 +19,10 @@ import {
   defaultLightingConfig,
   type LightingConfig,
 } from "@/modules/configurator/lighting";
-import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
+import type {
+  ConfiguratorQuote,
+  ConfiguratorState,
+} from "@/modules/configurator/map-to-engine";
 import {
   defaultProcessingConfig,
   type ProcessingConfig,
@@ -83,15 +87,59 @@ function parseNonNeg(value: string): number | null {
 type ConfiguratorWorkspaceProps = {
   canOverrideLedLength?: boolean;
   canEditTariffs?: boolean;
+  initialConfigId?: string | null;
+  initialConfigCode?: string | null;
+  initialConfigName?: string | null;
+  initialState?: ConfiguratorState | null;
 };
+
+function formFromState(state: ConfiguratorState): FormState {
+  return {
+    shapeId: state.shapeId,
+    widthMm: String(state.widthMm),
+    heightMm: String(state.heightMm),
+    glassTypeId: state.glassTypeId,
+    edgeLeftMm: String(state.manualEdgeAddsMm.left),
+    edgeRightMm: String(state.manualEdgeAddsMm.right),
+    edgeTopMm: String(state.manualEdgeAddsMm.top),
+    edgeBottomMm: String(state.manualEdgeAddsMm.bottom),
+    lighting: { ...defaultLightingConfig(), ...state.lighting },
+    processing: { ...defaultProcessingConfig(), ...state.processing },
+    commercial: { ...defaultCommercialConfig(), ...state.commercial },
+  };
+}
 
 export function ConfiguratorWorkspace({
   canOverrideLedLength = false,
   canEditTariffs = false,
+  initialConfigId = null,
+  initialConfigCode = null,
+  initialConfigName = null,
+  initialState = null,
 }: ConfiguratorWorkspaceProps) {
-  const [form, setForm] = useState<FormState>(INITIAL);
+  const [form, setForm] = useState<FormState>(
+    initialState ? formFromState(initialState) : INITIAL,
+  );
   const [quote, setQuote] = useState<ConfiguratorQuote | null>(null);
   const [pending, startTransition] = useTransition();
+  const [configId, setConfigId] = useState<string | null>(initialConfigId);
+  const [configCode, setConfigCode] = useState<string | null>(initialConfigCode);
+  const [configName, setConfigName] = useState(
+    initialConfigName ?? "Configurație nouă",
+  );
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!dirty) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   const selectedShape = useMemo(
     () => getShapeById(form.shapeId),
@@ -209,20 +257,57 @@ export function ConfiguratorWorkspace({
   const validationMessage = parsed.ok ? null : parsed.message;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setDirty(true);
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function buildPersistPayload(): Record<string, unknown> {
+    return {
+      shapeId: form.shapeId,
+      widthMm: Number(form.widthMm),
+      heightMm: Number(form.heightMm),
+      glassTypeId: form.glassTypeId,
+      manualEdgeAddsMm: {
+        left: Number(form.edgeLeftMm) || 0,
+        right: Number(form.edgeRightMm) || 0,
+        top: Number(form.edgeTopMm) || 0,
+        bottom: Number(form.edgeBottomMm) || 0,
+      },
+      lighting: form.lighting,
+      processing: form.processing,
+      commercial: form.commercial,
+    };
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <div className="space-y-5">
+        <ConfigToolbar
+          configId={configId}
+          configCode={configCode}
+          configName={configName}
+          onNameChange={(name) => {
+            setDirty(true);
+            setConfigName(name);
+          }}
+          buildPayload={buildPersistPayload}
+          dirty={dirty}
+          onSaved={(id, code, name) => {
+            setConfigId(id);
+            setConfigCode(code);
+            setConfigName(name);
+            setDirty(false);
+          }}
+        />
+
         <section className="space-y-5 rounded-xl border border-border bg-card p-5">
           <div>
             <h2 className="text-sm font-semibold text-foreground">
               Configurare
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Stage 5.4 — formă, LED, prelucrări, manoperă, ambalare, livrare și
-              montaj. Actualizare automată la modificare.
+              Stage 5.5 — configurator complet cu salvare și oferte. Actualizare
+              automată la modificare.
             </p>
           </div>
 
