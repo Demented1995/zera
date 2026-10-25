@@ -87,6 +87,12 @@ export type CustomerConfigRequest = {
   backLightTempK?: number;
   switchType?: string;
   switchQty?: number;
+  /** Lighting diffuser (plexiglass / aluminium profile already in the model). */
+  diffuserEnabled?: boolean;
+  /** Use the delivery service saved on the model. No tariff is invented. */
+  deliveryEnabled?: boolean;
+  /** Use the installation service saved on the model. No tariff is invented. */
+  installEnabled?: boolean;
   defogEnabled?: boolean;
   defogSize?: string;
   defogControl?: string;

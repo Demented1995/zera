@@ -125,7 +125,7 @@ export function ConfigToolbar({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid min-w-[220px] flex-1 gap-1.5">
           <Label htmlFor="cfg-name">Nume configurație</Label>

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
 import type { CatalogMaterial, PricingRules } from "@/modules/pricing/engine";
-import { MATERIAL_SEED_KEYS } from "@/modules/pricing/engine";
 
 export async function getPricingSettings() {
   const existing = await prisma.pricingSettings.findUnique({
@@ -29,9 +28,8 @@ export async function getPricingSettingsHistory(limit = 50) {
 }
 
 export async function loadCatalogMaterialsForEngine(): Promise<CatalogMaterial[]> {
-  const seedKeys = Object.values(MATERIAL_SEED_KEYS);
   const materials = await prisma.material.findMany({
-    where: { seedKey: { in: [...seedKeys] } },
+    where: { seedKey: { not: null } },
   });
 
   return materials

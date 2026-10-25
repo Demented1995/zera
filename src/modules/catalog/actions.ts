@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { nextModelCode } from "@/modules/catalog/codes";
+import { deleteModelImage } from "@/modules/catalog/images/service";
 import {
   canActivateModels,
   canManageCatalog,
@@ -13,6 +14,7 @@ import {
   canViewCatalog,
 } from "@/modules/catalog/permissions";
 import {
+  newModelConfiguratorRules,
   resolveConfiguratorRules,
   validateCustomerConfig,
   validateRulesConsistency,
@@ -37,6 +39,7 @@ import {
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { getShapeById } from "@/modules/configurator/shapes";
 import { recalculateFromConfigPayload } from "@/modules/offers/recalc";
+import { loadCatalogMaterialsForEngine } from "@/modules/pricing/queries";
 
 export type ActionResult =
   | { ok: true; message: string; id?: string; code?: string; slug?: string }
@@ -282,20 +285,20 @@ export async function saveMirrorModelAction(
   }
 
   const code = await nextModelCode();
+  const customerRules = newModelConfiguratorRules();
   const created = await prisma.mirrorModel.create({
     data: {
       ...rowData,
       isPublished: false,
       slugCustomized: data.slug !== slugifyModelName(data.name),
       code,
-      // New models: no limits until rules are configured (safe FIXED defaults).
-      minWidthMm: null,
-      maxWidthMm: null,
-      minHeightMm: null,
-      maxHeightMm: null,
+      minWidthMm: new Prisma.Decimal(customerRules.dimensions.width.minMm!),
+      maxWidthMm: new Prisma.Decimal(customerRules.dimensions.width.maxMm!),
+      minHeightMm: new Prisma.Decimal(customerRules.dimensions.height.minMm!),
+      maxHeightMm: new Prisma.Decimal(customerRules.dimensions.height.maxMm!),
       stepWidthMm: null,
       stepHeightMm: null,
-      configuratorRulesJson: undefined,
+      configuratorRulesJson: customerRules as unknown as Prisma.InputJsonValue,
       rulesVersion: 1,
       createdById: userId,
     },
@@ -410,10 +413,13 @@ export async function quoteModelWithRulesAction(raw: unknown): Promise<
     return { ok: false, message: "Modelul nu a fost găsit." };
   }
 
+  const materials = await loadCatalogMaterialsForEngine();
   const validated = validateCustomerConfig({
     modelDefault: model.configJson as unknown as ConfiguratorState,
     rules: model.configuratorRulesJson,
     request: parsed.data.request,
+    materials,
+    customerZerosUnset: true,
   });
 
   if (!validated.ok) {
@@ -429,6 +435,7 @@ export async function quoteModelWithRulesAction(raw: unknown): Promise<
 
   const { calculation } = await recalculateFromConfigPayload(
     validated.config as unknown as Record<string, unknown>,
+    { zeroUnsetSwitchPrice: true },
   );
 
   return {
@@ -607,6 +614,42 @@ export async function archiveMirrorModelAction(
     message: "Model reactivat ca ciornă. Setați Activ după verificarea calculului.",
     id: model.id,
   };
+}
+
+export async function deleteMirrorModelAction(id: string): Promise<ActionResult> {
+  const session = await requireStaffSession();
+  if (!canManageCatalog(session.user.role)) {
+    return { ok: false, message: "Nu aveți permisiunea de a elimina modele." };
+  }
+
+  const model = await prisma.mirrorModel.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      images: { select: { id: true } },
+    },
+  });
+  if (!model) {
+    return { ok: false, message: "Modelul nu a fost găsit." };
+  }
+
+  for (const image of model.images) {
+    await deleteModelImage({ db: prisma }, model.id, image.id);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customerOffer.updateMany({
+      where: { mirrorModelId: model.id },
+      data: { mirrorModelId: null },
+    });
+    await tx.mirrorModel.delete({ where: { id: model.id } });
+  });
+
+  revalidateCatalog();
+  revalidatePath(`/catalog/${model.slug}`);
+  return { ok: true, message: `„${model.name}” a fost eliminat din catalog.` };
 }
 
 export async function publishMirrorModelAction(input: {

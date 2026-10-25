@@ -15,6 +15,7 @@ import {
   defaultProcessingConfig,
   type ProcessingConfig,
 } from "@/modules/configurator/processing";
+import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
 import {
   MATERIAL_SEED_KEYS,
   type CatalogMaterial,
@@ -123,16 +124,67 @@ describe("configurator Stage 5.1 glass quotes", () => {
     assert.equal(quote.calculation?.glassCost, 477.75);
   });
 
-  it("unconfirmed shape stays incomplete without inventing geometry", () => {
+  it("custom 600×1000 adds 5 cm on every side", () => {
     const quote = quoteConfigurator({
+      state: state({
+        shapeId: "custom",
+        manualEdgeAddsMm: { left: 0, right: 0, top: 0, bottom: 0 },
+      }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.meta.calcWidthMm, 700);
+    assert.equal(quote.calculation?.meta.calcHeightMm, 1100);
+    assert.equal(quote.calculation?.glassCost, 500.5);
+  });
+
+  it("round 600×1000 uses 650/m² and +50 mm on every side", () => {
+    const quote = quoteConfigurator({
+      state: state({ shapeId: "round" }),
+      materials,
+      rules,
+    });
+    assert.equal(quote.calculation?.meta.calcWidthMm, 700);
+    assert.equal(quote.calculation?.meta.calcHeightMm, 1100);
+    assert.equal(quote.calculation?.glassCost, 500.5);
+  });
+
+  it("capsule adds 5 cm only on the two semicircular ends", () => {
+    const portrait = quoteConfigurator({
+      state: state({ shapeId: "capsule", widthMm: 600, heightMm: 1000 }),
+      materials,
+      rules,
+    });
+    assert.equal(portrait.calculation?.meta.calcWidthMm, 600);
+    assert.equal(portrait.calculation?.meta.calcHeightMm, 1100);
+    assert.equal(portrait.calculation?.glassCost, 429);
+
+    const landscape = quoteConfigurator({
+      state: state({ shapeId: "capsule", widthMm: 1000, heightMm: 600 }),
+      materials,
+      rules,
+    });
+    assert.equal(landscape.calculation?.meta.calcWidthMm, 1100);
+    assert.equal(landscape.calculation?.meta.calcHeightMm, 600);
+    assert.equal(landscape.calculation?.glassCost, 429);
+  });
+
+  it("semicircle matches the arcade adds; sail adds top and right", () => {
+    const semicircle = quoteConfigurator({
+      state: state({ shapeId: "semicircle" }),
+      materials,
+      rules,
+    });
+    assert.equal(semicircle.calculation?.glassCost, 477.75);
+
+    const sail = quoteConfigurator({
       state: state({ shapeId: "sail" }),
       materials,
       rules,
     });
-    assert.equal(quote.calculation, null);
-    assert.ok(
-      quote.blockers.some((item) => item.includes("nu este încă confirmată")),
-    );
+    assert.equal(sail.calculation?.meta.calcWidthMm, 650);
+    assert.equal(sail.calculation?.meta.calcHeightMm, 1050);
+    assert.equal(sail.calculation?.glassCost, 443.63);
   });
 
   it("non-standard glass does not fall back to Standard rates", () => {
@@ -144,6 +196,50 @@ describe("configurator Stage 5.1 glass quotes", () => {
     assert.ok(quote.blockers.some((item) => item.includes("Preț neconfigurat")));
     assert.equal(quote.calculation?.glassCost, null);
     assert.equal(quote.calculation?.status, "INCOMPLETE");
+  });
+
+  it("customer quote keeps the Standard glass rate until the type has a tariff", () => {
+    const quote = quoteConfigurator({
+      state: state({ glassTypeId: "bronz" }),
+      materials,
+      rules,
+      zeroUnsetSwitchPrice: true,
+    });
+    assert.equal(quote.calculation?.status, "COMPLETE");
+    assert.equal(quote.calculation?.glassCost, 360);
+  });
+
+  it("customer quote adds 0 for defog without a film price", () => {
+    const processing = defaultProcessingConfig();
+    processing.defogEnabled = true;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+      zeroUnsetSwitchPrice: true,
+    });
+    assert.equal(quote.calculation?.status, "COMPLETE");
+    assert.equal(quote.calculation?.processing?.defog, 0);
+    assert.equal(quote.calculation?.glassCost, 360);
+  });
+
+  it("prices non-standard glass from its own catalog material", () => {
+    const quote = quoteConfigurator({
+      state: state({ glassTypeId: "bronz" }),
+      materials: [
+        ...materials,
+        {
+          seedKey: UNPRICED_SEED.glassBronz,
+          name: "Sticlă Bronz",
+          unitPrice: 700,
+          unitOfMeasure: "m²",
+          isActive: true,
+        },
+      ],
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "COMPLETE");
+    assert.equal(quote.calculation?.glassCost, 420);
   });
 });
 
@@ -277,8 +373,8 @@ describe("configurator Stage 5.2 lighting", () => {
     });
     assert.equal(quote.calculation?.status, "INCOMPLETE");
     assert.ok(
-      quote.blockers.some((item) =>
-        item.toLowerCase().includes("fără preț asociat"),
+      quote.calculation?.missingCosts.some((item) =>
+        item.toLowerCase().includes("cob 10w"),
       ),
     );
     assert.equal(quote.calculation?.wholesalePrice, null);
@@ -299,7 +395,9 @@ describe("configurator Stage 5.2 lighting", () => {
     });
     assert.equal(quote.calculation?.status, "INCOMPLETE");
     assert.ok(
-      quote.blockers.some((item) => item.includes("Profil de montaj")),
+      quote.calculation?.missingCosts.some((item) =>
+        item.includes("Profil de montaj"),
+      ),
     );
   });
 
@@ -356,7 +454,7 @@ describe("configurator Stage 5.2 lighting", () => {
 });
 
 describe("configurator Stage 5.3 processing", () => {
-  it("sandblast 0.06 m² → 100 MDL minimum", () => {
+  it("standard sandblast uses the mirror area at the catalog rate", () => {
     const processing = defaultProcessingConfig();
     processing.sandblastFinish = "standard";
     processing.sandblastAreaM2 = 0.06;
@@ -365,22 +463,11 @@ describe("configurator Stage 5.3 processing", () => {
       materials,
       rules,
     });
-    assert.equal(quote.calculation?.operationCosts, 100);
-    assert.equal(quote.calculation?.processing?.sandblast, 100);
+    assert.equal(quote.calculation?.meta.sandblastAreaM2, 0.6);
+    assert.equal(quote.calculation?.operationCosts, 360);
+    assert.equal(quote.calculation?.processing?.sandblast, 360);
     assert.equal(quote.calculation?.glassCost, 360);
     assert.equal(quote.calculation?.status, "COMPLETE");
-  });
-
-  it("sandblast 0.20 m² → 120 MDL", () => {
-    const processing = defaultProcessingConfig();
-    processing.sandblastFinish = "standard";
-    processing.sandblastAreaM2 = 0.2;
-    const quote = quoteConfigurator({
-      state: state({ processing }),
-      materials,
-      rules,
-    });
-    assert.equal(quote.calculation?.operationCosts, 120);
   });
 
   it("touch without decorative sandblast → no sandblast operation", () => {
@@ -413,28 +500,28 @@ describe("configurator Stage 5.3 processing", () => {
       rules,
     });
     assert.equal(quote.calculation?.electrical?.switches, 100);
-    assert.equal(quote.calculation?.operationCosts, 120);
+    assert.equal(quote.calculation?.operationCosts, 360);
     assert.equal(
       quote.calculation?.totalProductionCost,
-      360 + 88 + 100 + 120,
+      360 + 88 + 100 + 360,
     );
   });
 
-  it("two sandblast bands apply minimum once", () => {
+  it("standard sandblast ignores decorative bands and uses the mirror area", () => {
     const processing = defaultProcessingConfig();
     processing.sandblastFinish = "standard";
     processing.sandblastAreaMode = "bands";
     processing.sandblastBands = [
-      { count: 1, lengthMm: 200, widthMm: 150 }, // 0.03 m²
-      { count: 1, lengthMm: 200, widthMm: 150 }, // 0.03 m² → total 0.06
+      { count: 1, lengthMm: 200, widthMm: 150 },
+      { count: 1, lengthMm: 200, widthMm: 150 },
     ];
     const quote = quoteConfigurator({
       state: state({ processing }),
       materials,
       rules,
     });
-    assert.equal(quote.calculation?.meta.sandblastAreaM2, 0.06);
-    assert.equal(quote.calculation?.operationCosts, 100);
+    assert.equal(quote.calculation?.meta.sandblastAreaM2, 0.6);
+    assert.equal(quote.calculation?.operationCosts, 360);
     assert.equal(
       quote.calculation?.lines.filter((line) => line.kind === "OPERATION")
         .length,
@@ -453,7 +540,7 @@ describe("configurator Stage 5.3 processing", () => {
     assert.equal(quote.calculation?.status, "INCOMPLETE");
     assert.equal(quote.calculation?.wholesalePrice, null);
     assert.ok(
-      quote.blockers.some((item) =>
+      quote.calculation?.missingCosts.some((item) =>
         item.toLowerCase().includes("dezaburire"),
       ),
     );
@@ -469,7 +556,9 @@ describe("configurator Stage 5.3 processing", () => {
       rules,
     });
     assert.equal(quote.calculation?.status, "INCOMPLETE");
-    assert.ok(quote.blockers.some((item) => item.includes("Ramă")));
+    assert.ok(
+      quote.calculation?.missingCosts.some((item) => item.includes("Ramă")),
+    );
   });
 
   it("facet without tariff → INCOMPLETE", () => {
@@ -482,7 +571,90 @@ describe("configurator Stage 5.3 processing", () => {
       rules,
     });
     assert.equal(quote.calculation?.status, "INCOMPLETE");
-    assert.ok(quote.blockers.some((item) => item.includes("Fațetă")));
+    assert.ok(
+      quote.calculation?.missingCosts.some((item) => item.includes("Fațetă")),
+    );
+  });
+
+  it("facet uses the rectangular perimeter", () => {
+    const processing = defaultProcessingConfig();
+    processing.facetEnabled = true;
+    processing.facetLengthM = 2;
+    const quote = quoteConfigurator({
+      state: state({ processing }),
+      materials: [
+        ...materials,
+        {
+          seedKey: UNPRICED_SEED.facetStraight10,
+          name: "Fațetă dreaptă 10 mm",
+          unitPrice: 50,
+          unitOfMeasure: "metru",
+          isActive: true,
+        },
+      ],
+      rules,
+    });
+    assert.equal(quote.calculation?.status, "COMPLETE");
+    assert.equal(quote.calculation?.processing?.facets, 160);
+  });
+
+  it("an unpriced switch adds 0 on the customer quote", () => {
+    const lighting = defaultLightingConfig();
+    lighting.lightingType = "front";
+    lighting.front.positioning = "perimeter";
+    lighting.transformerPcs = 1;
+    lighting.switches = [{ type: "mechanical", qty: 1, associatedSystem: "front" }];
+    const blocked = quoteConfigurator({
+      state: state({ lighting }),
+      materials,
+      rules,
+    });
+    assert.equal(blocked.calculation?.status, "INCOMPLETE");
+
+    const shown = quoteConfigurator({
+      state: state({ lighting }),
+      materials,
+      rules,
+      zeroUnsetSwitchPrice: true,
+    });
+    assert.equal(shown.calculation?.status, "COMPLETE");
+    assert.equal(shown.calculation?.electrical?.switches, 0);
+    assert.ok((shown.calculation?.retailPrice ?? 0) > 0);
+  });
+
+  it("engraving uses the mirror area and ignores a typed piece cost", () => {
+    const processing = defaultProcessingConfig();
+    processing.engravingEnabled = true;
+    processing.engravingQty = 3;
+    processing.engravingUnitCost = 25;
+    const missing = quoteConfigurator({
+      state: state({ processing }),
+      materials,
+      rules,
+    });
+    assert.equal(missing.calculation?.status, "INCOMPLETE");
+    assert.ok(
+      missing.calculation?.missingCosts.some((item) =>
+        item.toLowerCase().includes("gravură"),
+      ),
+    );
+
+    const priced = quoteConfigurator({
+      state: state({ processing }),
+      materials: [
+        ...materials,
+        {
+          seedKey: UNPRICED_SEED.engraving,
+          name: "Gravură",
+          unitPrice: 100,
+          unitOfMeasure: "m²",
+          isActive: true,
+        },
+      ],
+      rules,
+    });
+    assert.equal(priced.calculation?.status, "COMPLETE");
+    assert.equal(priced.calculation?.processing?.engraving, 60);
   });
 
   it("preserves Stage 5.1–5.2 glass and LED calcs with processing none", () => {
@@ -645,10 +817,10 @@ describe("configurator Stage 5.4 commercial", () => {
     assert.equal(quote.calculation?.glassCost, 360);
     assert.equal(quote.ledSystems[0]?.length?.totalLengthM, 3.52);
     assert.equal(quote.calculation?.electrical?.frontLed, 140.8);
-    assert.equal(quote.calculation?.operationCosts, 120);
+    assert.equal(quote.calculation?.operationCosts, 360);
     assert.equal(
       quote.calculation?.totalProductionCost,
-      360 + 140.8 + 120,
+      360 + 140.8 + 360,
     );
     assert.equal(quote.calculation?.financial?.services.delivery, 50);
     assert.equal(quote.calculation?.status, "COMPLETE");

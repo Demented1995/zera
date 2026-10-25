@@ -174,7 +174,7 @@ describe("customer configurator preview", () => {
     });
     assert.equal(view.customer.price.available, false);
     assert.equal(view.customer.price.retailPrice, null);
-    assert.equal(view.customer.price.message, "Preț indisponibil momentan");
+    assert.equal(view.customer.price.message, "Prețul nu poate fi calculat.");
     assert.equal(findForbiddenCommercialKey(view.customer), null);
     assert.equal(JSON.stringify(view.customer).includes(hiddenCause), false);
     assert.equal(view.diagnostic?.missingCauses.includes(hiddenCause), true);

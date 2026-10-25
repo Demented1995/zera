@@ -4,14 +4,12 @@ import { optionCatalogForFeature } from "@/modules/catalog/rules/option-catalog"
 import { coerceConfiguratorState } from "@/modules/catalog/preview/view";
 import { getGlassTypeById } from "@/modules/configurator/glass-types";
 import {
-  LED_STRIP_TYPES,
   LED_TEMPERATURES,
   LIGHTING_TYPES,
   SWITCH_TYPES,
 } from "@/modules/configurator/lighting";
 import {
   DEFOG_CONTROLS,
-  DEFOG_SIZES,
   FRAME_TYPES,
   MOUNTING_TYPES,
 } from "@/modules/configurator/processing";
@@ -188,25 +186,6 @@ export function derivePublicSpecifications(input: {
   }
 
   const ledActive = lighting === "front" || lighting === "back" || lighting === "both";
-  if (ledActive && lightingVisible && !hidden(rules, "ledStripType")) {
-    const ids = [
-      showFront && !frontHidden ? state.lighting.front?.stripTypeId : null,
-      showBack && !backHidden ? state.lighting.back?.stripTypeId : null,
-    ].filter((id): id is NonNullable<typeof id> => Boolean(id));
-    const unique = [...new Set(ids)];
-    const labels = unique
-      .map((id) => labelOf(LED_STRIP_TYPES, id))
-      .filter((item): item is string => Boolean(item));
-    if (labels.length > 0) {
-      specs.push({
-        id: "led-strip",
-        label: "Bandă LED",
-        value: labels.join(", "),
-        options: allowedOptions(rules, "ledStripType"),
-        source: "configurator",
-      });
-    }
-  }
 
   if (ledActive && lightingVisible && !hidden(rules, "lightTemp")) {
     const temps = [
@@ -243,25 +222,21 @@ export function derivePublicSpecifications(input: {
   }
 
   if (!hidden(rules, "defog")) {
-    if (!state.processing.defogEnabled) {
-      specs.push({
-        id: "defog",
-        label: "Dezaburire",
-        value: "Nu",
-        options: allowedOptions(rules, "defog"),
-        source: "configurator",
-      });
-    } else {
-      const size = labelOf(DEFOG_SIZES, state.processing.defogSize);
-      const control = labelOf(DEFOG_CONTROLS, state.processing.defogControl);
-      specs.push({
-        id: "defog",
-        label: "Dezaburire",
-        value: ["Da", size, control].filter(Boolean).join(", "),
-        options: allowedOptions(rules, "defog"),
-        source: "configurator",
-      });
-    }
+    const control = DEFOG_CONTROLS.find(
+      (item) => item.id === state.processing.defogControl,
+    )?.label;
+    specs.push({
+      id: "defog",
+      label: "Dezaburire",
+      value: state.processing.defogEnabled
+        ? `Da · ${control ?? "Întrerupător comun"}`
+        : "Nu",
+      options:
+        modeOf(rules, "defog") === "EDITABLE"
+          ? DEFOG_CONTROLS.map((item) => item.label).join(", ")
+          : null,
+      source: "configurator",
+    });
   }
 
   if (!hidden(rules, "frames")) {

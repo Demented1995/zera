@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FolderTree, History, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -22,8 +22,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { setMaterialActiveAction } from "@/modules/materials/actions";
-import { UNCONFIRMED_UOM } from "@/modules/materials/constants";
+import {
+  assignMaterialCategoryAction,
+  deleteMaterialAction,
+  setMaterialActiveAction,
+  setMaterialPriceAction,
+  setMaterialUnitAction,
+} from "@/modules/materials/actions";
+import { MATERIAL_UNITS, UNCONFIRMED_UOM } from "@/modules/materials/constants";
 import { formatMaterialPrice } from "@/modules/materials/format";
 import type {
   MaterialCategoryDTO,
@@ -54,6 +60,13 @@ function hasUnconfirmedUom(material: MaterialDTO) {
   return material.unitOfMeasure === UNCONFIRMED_UOM;
 }
 
+function needsAttention(material: MaterialDTO) {
+  return hasUnconfirmedPrice(material) || hasUnconfirmedUom(material);
+}
+
+const attentionRowClass =
+  "!bg-[#722F37] !text-white hover:!bg-[#5e2430] [&_button]:!text-white [&_input]:bg-white [&_input]:!text-neutral-900 [&_select]:bg-white [&_select]:!text-neutral-900 [&_[data-slot=badge]]:border-white/70 [&_[data-slot=badge]]:bg-white/15 [&_[data-slot=badge]]:text-white";
+
 export function MaterialsView({
   materials,
   categories,
@@ -73,6 +86,7 @@ export function MaterialsView({
   const [deactivateTarget, setDeactivateTarget] = useState<MaterialDTO | null>(
     null,
   );
+  const [deleteTarget, setDeleteTarget] = useState<MaterialDTO | null>(null);
   const [pending, startTransition] = useTransition();
 
   const categoryById = useMemo(() => {
@@ -102,10 +116,18 @@ export function MaterialsView({
     });
   }, [materials, query, categoryId, status]);
 
+  const unpriced = useMemo(
+    () => filtered.filter((material) => material.categoryId == null),
+    [filtered],
+  );
+
   const grouped = useMemo(() => {
     const groups = new Map<string, MaterialGroup>();
 
     for (const material of filtered) {
+      if (!material.categoryId) {
+        continue;
+      }
       const category = categoryById.get(material.categoryId);
       const key = material.categoryId;
       const existing = groups.get(key);
@@ -116,7 +138,7 @@ export function MaterialsView({
 
       groups.set(key, {
         categoryId: key,
-        categoryName: category?.name ?? material.categoryName,
+        categoryName: category?.name ?? material.categoryName ?? "Fără categorie",
         categoryActive: category?.isActive ?? true,
         sortOrder: category?.sortOrder ?? Number.MAX_SAFE_INTEGER,
         materials: [material],
@@ -157,6 +179,66 @@ export function MaterialsView({
       }
       toast.success(result.message);
       setDeactivateTarget(null);
+      refresh();
+    });
+  }
+
+  function changePrice(material: MaterialDTO, rawPrice: string) {
+    startTransition(async () => {
+      const result = await setMaterialPriceAction(material.id, rawPrice);
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      if (result.message !== "Prețul este neschimbat.") {
+        toast.success(result.message);
+      }
+      refresh();
+    });
+  }
+
+  function changeUnit(material: MaterialDTO, unitOfMeasure: string) {
+    if (!unitOfMeasure || unitOfMeasure === material.unitOfMeasure) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await setMaterialUnitAction(material.id, unitOfMeasure);
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
+      refresh();
+    });
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await deleteMaterialAction(deleteTarget.id);
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
+      setDeleteTarget(null);
+      refresh();
+    });
+  }
+
+  function assignCategory(material: MaterialDTO, nextCategoryId: string) {
+    if (!nextCategoryId) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await assignMaterialCategoryAction(material.id, nextCategoryId);
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
       refresh();
     });
   }
@@ -236,13 +318,124 @@ export function MaterialsView({
           </select>
         </div>
 
-        {grouped.length === 0 ? (
+        {unpriced.length === 0 && grouped.length === 0 ? (
           <EmptyState
             title="Niciun material găsit"
             description="Ajustați filtrele sau adăugați un material nou."
           />
         ) : (
           <div className="space-y-6">
+            {unpriced.length > 0 ? (
+              <section className="overflow-hidden rounded-xl border border-[#722F37] bg-[#722F37]">
+                <div className="flex items-center justify-between gap-3 border-b border-[#722F37] bg-[#722F37] px-4 py-3 text-white">
+                  <h2 className="text-sm font-semibold tracking-tight">
+                    Fără preț
+                  </h2>
+                  <span className="shrink-0 text-xs text-white/80">
+                    {unpriced.length}{" "}
+                    {unpriced.length === 1 ? "element" : "elemente"}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="[&_th]:!text-white">
+                      <TableRow className="border-white/20 hover:bg-transparent">
+                        <TableHead>Element</TableHead>
+                        <TableHead>Preț</TableHead>
+                        <TableHead>U.M.</TableHead>
+                        <TableHead>Categorie</TableHead>
+                        {canManage ? <TableHead className="text-right">Acțiuni</TableHead> : null}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {unpriced.map((material) => (
+                        <TableRow key={material.id} className={attentionRowClass}>
+                          <TableCell className="font-medium">{material.name}</TableCell>
+                          <TableCell>
+                            {canManage ? (
+                              <UnpricedPriceField
+                                material={material}
+                                disabled={pending}
+                                onSave={changePrice}
+                              />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                {hasUnconfirmedPrice(material)
+                                  ? "Preț nesetat"
+                                  : formatMaterialPrice(
+                                      material.unitPrice,
+                                      material.currency,
+                                    )}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {canManage ? (
+                              <select
+                                className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+                                aria-label={`Unitatea pentru ${material.name}`}
+                                value={material.unitOfMeasure}
+                                disabled={pending}
+                                onChange={(event) =>
+                                  changeUnit(material, event.target.value)
+                                }
+                              >
+                                {MATERIAL_UNITS.map((unit) => (
+                                  <option key={unit} value={unit}>
+                                    {unit}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-sm">{material.unitOfMeasure}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {canManage ? (
+                              <select
+                                className="h-8 max-w-56 rounded-lg border border-input bg-transparent px-2 text-sm"
+                                aria-label={`Categoria pentru ${material.name}`}
+                                defaultValue=""
+                                disabled={pending}
+                                onChange={(event) =>
+                                  assignCategory(material, event.target.value)
+                                }
+                              >
+                                <option value="">Alege categoria</option>
+                                {categories
+                                  .filter((category) => category.isActive)
+                                  .map((category) => (
+                                    <option key={category.id} value={category.id}>
+                                      {category.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                Fără categorie
+                              </span>
+                            )}
+                          </TableCell>
+                          {canManage ? (
+                            <TableCell className="text-right">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                disabled={pending}
+                                onClick={() => setDeleteTarget(material)}
+                              >
+                                Șterge
+                              </Button>
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </section>
+            ) : null}
             {grouped.map((group) => (
               <section
                 key={group.categoryId}
@@ -280,7 +473,12 @@ export function MaterialsView({
                         const unconfirmedUom = hasUnconfirmedUom(material);
 
                         return (
-                          <TableRow key={material.id}>
+                          <TableRow
+                            key={material.id}
+                            className={
+                              needsAttention(material) ? attentionRowClass : undefined
+                            }
+                          >
                             <TableCell className="max-w-[280px]">
                               <div className="font-medium text-foreground">
                                 {material.name}
@@ -302,9 +500,7 @@ export function MaterialsView({
                             </TableCell>
                             <TableCell className="whitespace-nowrap text-sm">
                               {unconfirmedPrice ? (
-                                <span className="text-muted-foreground">
-                                  Preț nesetat
-                                </span>
+                                <span className="font-medium">Preț nesetat</span>
                               ) : (
                                 formatMaterialPrice(
                                   material.unitPrice,
@@ -314,9 +510,7 @@ export function MaterialsView({
                             </TableCell>
                             <TableCell className="text-sm">
                               {unconfirmedUom ? (
-                                <span className="text-muted-foreground">
-                                  neconfirmat
-                                </span>
+                                <span className="font-medium">neconfirmat</span>
                               ) : (
                                 material.unitOfMeasure
                               )}
@@ -375,6 +569,15 @@ export function MaterialsView({
                                         Reactivează
                                       </Button>
                                     )}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setDeleteTarget(material)}
+                                      disabled={pending}
+                                    >
+                                      Șterge
+                                    </Button>
                                   </>
                                 ) : null}
                               </div>
@@ -442,6 +645,72 @@ export function MaterialsView({
         pending={pending}
         onConfirm={confirmDeactivate}
       />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Ștergeți elementul?"
+        description={
+          deleteTarget
+            ? `„${deleteTarget.name}” va fi scos din listă și nu va mai fi folosit la preț.`
+            : undefined
+        }
+        confirmLabel="Șterge"
+        destructive
+        pending={pending}
+        onConfirm={confirmDelete}
+      />
+    </div>
+  );
+}
+
+function UnpricedPriceField({
+  material,
+  disabled,
+  onSave,
+}: {
+  material: MaterialDTO;
+  disabled: boolean;
+  onSave: (material: MaterialDTO, rawPrice: string) => void;
+}) {
+  const [draft, setDraft] = useState(material.unitPrice ?? "");
+
+  useEffect(() => {
+    setDraft(material.unitPrice ?? "");
+  }, [material.unitPrice]);
+
+  function commit() {
+    const next = draft.trim();
+    if (!next || next === (material.unitPrice ?? "")) {
+      setDraft(material.unitPrice ?? "");
+      return;
+    }
+    onSave(material, next);
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        className="h-8 w-28"
+        inputMode="decimal"
+        aria-label={`Preț pentru ${material.name}`}
+        placeholder="Preț"
+        value={draft}
+        disabled={disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit();
+          }
+        }}
+      />
+      <span className="text-xs text-muted-foreground">MDL</span>
     </div>
   );
 }

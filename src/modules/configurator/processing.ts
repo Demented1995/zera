@@ -1,3 +1,4 @@
+import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
 import { MATERIAL_SEED_KEYS } from "@/modules/pricing/engine";
 import type { DetailedComponentLine } from "@/modules/pricing/engine/types";
 
@@ -16,7 +17,7 @@ export type FacetShapeId = "straight" | "curved";
 export type FacetWidthMm = 10 | 15 | 20;
 
 export type DefogSizeId = "300x400" | "400x500";
-export type DefogControlId = "mechanical" | "touch";
+export type DefogControlId = "mechanical" | "touch" | "motion";
 
 export type FrameTypeId =
   | "none"
@@ -54,8 +55,8 @@ export const SANDBLAST_FINISHES: Array<{
     label: "Sablare standard",
     materialSeedKey: MATERIAL_SEED_KEYS.sandblast,
   },
-  { id: "painted", label: "Sablare vopsită", materialSeedKey: null },
-  { id: "laser", label: "Sablare laser", materialSeedKey: null },
+  { id: "painted", label: "Sablare vopsită", materialSeedKey: UNPRICED_SEED.sandblastPainted },
+  { id: "laser", label: "Sablare laser", materialSeedKey: UNPRICED_SEED.sandblastLaser },
 ];
 
 export const FACET_SHAPES: Array<{ id: FacetShapeId; label: string }> = [
@@ -73,12 +74,12 @@ export const FACET_TARIFF_SEED: Record<
   `${FacetShapeId}-${FacetWidthMm}`,
   string | null
 > = {
-  "straight-10": null,
-  "straight-15": null,
-  "straight-20": null,
-  "curved-10": null,
-  "curved-15": null,
-  "curved-20": null,
+  "straight-10": UNPRICED_SEED.facetStraight10,
+  "straight-15": UNPRICED_SEED.facetStraight15,
+  "straight-20": UNPRICED_SEED.facetStraight20,
+  "curved-10": UNPRICED_SEED.facetCurved10,
+  "curved-15": UNPRICED_SEED.facetCurved15,
+  "curved-20": UNPRICED_SEED.facetCurved20,
 };
 
 export const DEFOG_SIZES: Array<{ id: DefogSizeId; label: string }> = [
@@ -90,8 +91,9 @@ export const DEFOG_CONTROLS: Array<{
   id: DefogControlId;
   label: string;
 }> = [
-  { id: "mechanical", label: "Mecanic" },
-  { id: "touch", label: "Touch (senzor separat)" },
+  { id: "mechanical", label: "Întrerupător comun" },
+  { id: "touch", label: "Touch" },
+  { id: "motion", label: "Senzor de mișcare" },
 ];
 
 export const FRAME_TYPES: Array<{
@@ -108,31 +110,31 @@ export const FRAME_TYPES: Array<{
   {
     id: "aluminium-corner-10",
     label: "Colțar aluminiu 10 mm",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.frameCorner10,
     rectangularPerimeterAuto: false,
   },
   {
     id: "aluminium-rectangular",
     label: "Ramă aluminiu dreptunghiulară",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.frameAluminiumRect,
     rectangularPerimeterAuto: false,
   },
   {
     id: "aluminium-special",
     label: "Ramă aluminiu formă specială",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.frameAluminiumSpecial,
     rectangularPerimeterAuto: false,
   },
   {
     id: "mdf-painted",
     label: "MDF vopsit",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.frameMdf,
     rectangularPerimeterAuto: false,
   },
   {
     id: "wood",
     label: "Lemn",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.frameWood,
     rectangularPerimeterAuto: false,
   },
 ];
@@ -147,9 +149,9 @@ export const CUTOUT_TYPES: Array<{
   label: string;
   materialSeedKey: string | null;
 }> = [
-  { id: "hole-le-50", label: "Gaură ≤ 50 mm", materialSeedKey: null },
-  { id: "hole-gt-50", label: "Gaură > 50 mm", materialSeedKey: null },
-  { id: "custom", label: "Decupaj personalizat", materialSeedKey: null },
+  { id: "hole-le-50", label: "Gaură ≤ 50 mm", materialSeedKey: UNPRICED_SEED.holeLe50 },
+  { id: "hole-gt-50", label: "Gaură > 50 mm", materialSeedKey: UNPRICED_SEED.holeGt50 },
+  { id: "custom", label: "Decupaj personalizat", materialSeedKey: UNPRICED_SEED.cutoutCustom },
 ];
 
 export const PRODUCT_ACCESSORIES: Array<{
@@ -157,17 +159,17 @@ export const PRODUCT_ACCESSORIES: Array<{
   label: string;
   materialSeedKey: string | null;
 }> = [
-  { id: "clock", label: "Ceas", materialSeedKey: null },
-  { id: "magnifying-mirror", label: "Oglindă măritoare", materialSeedKey: null },
+  { id: "clock", label: "Ceas", materialSeedKey: UNPRICED_SEED.clock },
+  { id: "magnifying-mirror", label: "Oglindă măritoare", materialSeedKey: UNPRICED_SEED.magnifyingMirror },
   {
     id: "multimedia-screen",
     label: "Ecran multimedia",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.multimediaScreen,
   },
   {
     id: "interactive-joystick",
     label: "Joystick interactiv",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.joystick,
   },
 ];
 
@@ -178,13 +180,13 @@ export const BRANDING_OPTIONS: Array<{
   /** When true, quantity may use mirror area (m²) if material UOM is m². */
   areaBased: boolean;
 }> = [
-  { id: "logo-lit", label: "Logo luminos", materialSeedKey: null, areaBased: false },
-  { id: "logo-unlit", label: "Logo neluminos", materialSeedKey: null, areaBased: false },
-  { id: "painting", label: "Vopsire", materialSeedKey: null, areaBased: false },
+  { id: "logo-lit", label: "Logo luminos", materialSeedKey: UNPRICED_SEED.logoLit, areaBased: false },
+  { id: "logo-unlit", label: "Logo neluminos", materialSeedKey: UNPRICED_SEED.logoUnlit, areaBased: false },
+  { id: "painting", label: "Vopsire", materialSeedKey: UNPRICED_SEED.painting, areaBased: false },
   {
     id: "anti-shatter-film",
     label: "Folie anti-ciobire",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.antiShatterFilm,
     areaBased: true,
   },
 ];
@@ -286,6 +288,18 @@ export function defaultProcessingConfig(): ProcessingConfig {
   };
 }
 
+/** Rectangular outline in meters. Special shapes have no confirmed perimeter. */
+export function mirrorPerimeterM(
+  widthMm: number,
+  heightMm: number,
+  shapeIsRectangular: boolean,
+): number | null {
+  if (!shapeIsRectangular || !(widthMm > 0) || !(heightMm > 0)) {
+    return null;
+  }
+  return (2 * (widthMm + heightMm)) / 1000;
+}
+
 /** Sum rectangular band areas in m². */
 export function computeSandblastBandsAreaM2(bands: SandblastBand[]): number {
   let total = 0;
@@ -335,10 +349,11 @@ export function buildProcessingDetailedComponents(options: {
 
   // --- Sandblast ---
   if (processing.sandblastFinish === "standard") {
-    decorativeSandblastAreaM2 = resolveDecorativeSandblastAreaM2(processing);
-    if (decorativeSandblastAreaM2 <= 0) {
+    if (glassAreaM2 != null && glassAreaM2 > 0) {
+      decorativeSandblastAreaM2 = glassAreaM2;
+    } else {
       blockers.push(
-        "Sablare standard: introduceți aria decorativă (m²) sau benzile.",
+        "Sablare standard: suprafața oglinzii nu este confirmată.",
       );
     }
   } else if (
@@ -375,14 +390,15 @@ export function buildProcessingDetailedComponents(options: {
     const shapeLabel =
       FACET_SHAPES.find((item) => item.id === processing.facetShape)?.label ??
       processing.facetShape;
+    const perimeterM = mirrorPerimeterM(widthMm, heightMm, shapeIsRectangular);
     detailedComponents.push({
       key: `facet-${tariffKey}`,
       label: `Fațetă ${shapeLabel} ${processing.facetWidthMm} mm`,
       seedKey,
-      quantity: processing.facetLengthM,
+      quantity: perimeterM ?? 0,
       unit: "metru",
       group: "facet",
-      note: "Tarif pe lungime prelucrată — nu se presupune același tarif pentru toate lățimile.",
+      note: "Lungime = perimetrul oglinzii.",
       required: true,
     });
     if (!seedKey) {
@@ -390,80 +406,65 @@ export function buildProcessingDetailedComponents(options: {
         `Fațetă ${shapeLabel} ${processing.facetWidthMm} mm: tarif lipsă`,
       );
     }
-    if (processing.facetLengthM <= 0) {
-      blockers.push("Fațetă: lungimea prelucrată (m) trebuie să fie > 0.");
+    if (perimeterM == null) {
+      blockers.push("Fațetă: perimetrul nu este confirmat pentru această formă.");
     }
   }
 
   // --- Engraving ---
   if (processing.engravingEnabled) {
-    if (processing.engravingUnitCost === null) {
-      blockers.push("Gravură: cost admin neconfigurat");
-      detailedComponents.push({
-        key: "engraving",
-        label: `Gravură${processing.engravingDescription ? `: ${processing.engravingDescription}` : ""}`,
-        seedKey: null,
-        quantity: processing.engravingQty,
-        unit: "bucată",
-        group: "engraving",
-        required: true,
-      });
-    } else if (processing.engravingQty > 0) {
-      // Explicit admin unit cost — synthetic line via null seed + we'll handle
-      // as blocker-free by using a special approach: pass quantity and encode
-      // cost through a note; engine needs seedKey. Use "other" with a virtual
-      // approach: inject as detailed line only works with catalog.
-      // Instead encode via labor-like path: keep as required incomplete unless
-      // we add optional unitPrice override. For Stage 5.3, store admin cost by
-      // creating a pseudo material isn't allowed. Use group engraving with
-      // seedKey null AND include unitCost in a parallel field...
-      // Simplest correct approach: add optional unitPriceOverride on DetailedComponentLine.
-      detailedComponents.push({
-        key: "engraving",
-        label: `Gravură${processing.engravingDescription ? `: ${processing.engravingDescription}` : ""}`,
-        seedKey: null,
-        quantity: processing.engravingQty,
-        unit: "bucată",
-        group: "engraving",
-        note: `Cost admin: ${processing.engravingUnitCost} MDL / buc`,
-        required: true,
-        unitPriceOverride: processing.engravingUnitCost,
-      });
+    const area = glassAreaM2 != null && glassAreaM2 > 0 ? glassAreaM2 : 0;
+    const description = processing.engravingDescription.trim();
+    detailedComponents.push({
+      key: "engraving",
+      label: `Gravură${description ? `: ${description}` : ""}`,
+      seedKey: UNPRICED_SEED.engraving,
+      quantity: area,
+      unit: "m²",
+      group: "engraving",
+      note: description || undefined,
+      required: true,
+    });
+    if (area <= 0) {
+      blockers.push("Gravură: suprafața oglinzii nu este confirmată.");
     }
   }
 
   // --- Defog ---
   if (processing.defogEnabled) {
-    const sizeLabel =
-      DEFOG_SIZES.find((item) => item.id === processing.defogSize)?.label ??
-      processing.defogSize;
+    const qty = processing.defogQty > 0 ? processing.defogQty : 1;
     detailedComponents.push({
-      key: `defog-film-${processing.defogSize}`,
-      label: `Folie dezaburire ${sizeLabel}`,
-      seedKey: null,
-      quantity: processing.defogQty,
+      key: "defog-film",
+      label: "Dezaburire",
+      seedKey: UNPRICED_SEED.defog,
+      quantity: qty,
       unit: "bucată",
       group: "defog",
-      note: "Preț folie neconfirmat — asociere catalog necesară.",
       required: true,
     });
-    blockers.push(
-      `Dezaburire ${sizeLabel}: Preț neconfigurat (folie în catalog)`,
-    );
 
-    if (processing.defogControl === "touch" && processing.defogQty > 0) {
+    if (processing.defogControl === "touch") {
       detailedComponents.push({
         key: "defog-touch",
-        label: "Senzor touch dezaburire (separat de LED)",
+        label: "Touch dezaburire",
         seedKey: MATERIAL_SEED_KEYS.touch,
-        quantity: processing.defogQty,
+        quantity: qty,
         unit: "bucată",
         group: "defog",
-        note: "Nu se confundă cu senzorul LED; se taxează separat.",
+        note: "Separat de senzorul LED.",
+        required: true,
+      });
+    } else if (processing.defogControl === "motion") {
+      detailedComponents.push({
+        key: "defog-motion",
+        label: "Senzor de mișcare dezaburire",
+        seedKey: UNPRICED_SEED.switchMotion,
+        quantity: qty,
+        unit: "bucată",
+        group: "defog",
         required: true,
       });
     }
-    // Mechanical control: selection saved only — no invented price.
   }
 
   // --- Frames ---

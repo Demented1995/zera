@@ -4,7 +4,7 @@ export type GlassShapeKind = "RECTANGLE" | "SPECIAL";
 /**
  * Per-side curved-edge additions in mm.
  * Only sides the admin/configurator marks as curved should receive the standard add.
- * Never auto-applied to all asymmetric shapes.
+ * Applied only on the sides marked curved for that shape.
  */
 export type CurvedEdgeAddsMm = {
   left: number;
@@ -125,6 +125,16 @@ export type CalculationInput = {
   widthMm: number;
   heightMm: number;
   shape: GlassShapeKind;
+  /**
+   * When set, glass is priced from this catalog material instead of the
+   * shape default (rectangle / special). Missing price stays incomplete.
+   */
+  glassSeedKey?: string;
+  /**
+   * Customer site only: a switch or defog film without a catalog price adds 0.
+   * An unpriced glass type keeps the Standard rate until its own tariff exists.
+   */
+  zeroUnsetSwitchPrice?: boolean;
   /** Which outer edges are curved; values are 0 or the standard add (applied by engine from rules). */
   curvedEdges: {
     left: boolean;

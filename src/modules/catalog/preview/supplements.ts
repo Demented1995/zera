@@ -7,7 +7,7 @@ import type {
 } from "@/modules/catalog/rules/types";
 import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
-import { acceptedRetailPrice } from "@/modules/orders/public";
+import { acceptedPayablePrice } from "@/modules/orders/public";
 import type { CatalogMaterial, PricingRules } from "@/modules/pricing/engine";
 
 type SelectControl = Extract<PreviewControl, { kind: "select" }>;
@@ -38,8 +38,13 @@ export function applyRetailSupplements(input: QuoteInput): PreviewControl[] {
       modelDefault: input.modelDefault,
       rules: input.rules,
       request,
+      materials: input.materials,
+      customerZerosUnset: true,
     });
-    if (!validated.ok) {
+    if (
+      !validated.ok ||
+      validated.rejected.some((issue) => issue.code === "unpriced_option")
+    ) {
       cache.set(key, null);
       return null;
     }
@@ -47,18 +52,45 @@ export function applyRetailSupplements(input: QuoteInput): PreviewControl[] {
       state: clearInactiveComponents(validated.config),
       materials: input.materials,
       rules: input.pricingRules,
+      zeroUnsetSwitchPrice: true,
     });
-    const price = acceptedRetailPrice(quote.calculation);
+    const price = acceptedPayablePrice(quote.calculation);
     cache.set(key, price);
     return price;
   }
 
   return input.controls.map((control) => {
-    if (control.kind !== "select") {
-      return control;
+    if (control.kind === "select") {
+      return withSelectSupplements(control, input.selection, retail);
     }
-    return withSelectSupplements(control, input.selection, retail);
+    if (control.kind === "toggle") {
+      return withToggleSupplement(control, input.selection, retail);
+    }
+    return control;
   });
+}
+
+function withToggleSupplement(
+  control: Extract<PreviewControl, { kind: "toggle" }>,
+  selection: CustomerConfigRequest,
+  retail: (request: CustomerConfigRequest) => number | null,
+): Extract<PreviewControl, { kind: "toggle" }> {
+  const baselineRequest = omitField(selection, control.field);
+  const off = retail({
+    ...baselineRequest,
+    [control.field]: false,
+  } as CustomerConfigRequest);
+  const on = retail({
+    ...baselineRequest,
+    [control.field]: true,
+  } as CustomerConfigRequest);
+  if (off == null || on == null) {
+    return { ...control, supplementMdl: null };
+  }
+  return {
+    ...control,
+    supplementMdl: Math.round((on - off) * 100) / 100,
+  };
 }
 
 function withSelectSupplements(
@@ -82,19 +114,24 @@ function withSelectSupplements(
       if (price == null) {
         return { ...option, supplementMdl: null };
       }
-      return {
-        ...option,
-        supplementMdl: Math.round((price - baseline) * 100) / 100,
-      };
+      const supplementMdl = Math.round((price - baseline) * 100) / 100;
+      if (
+        supplementMdl === 0 &&
+        (control.id === "light-temp" ||
+          (control.id === "glassType" && option.id === "standard"))
+      ) {
+        return { ...option, supplementMdl: null };
+      }
+      return { ...option, supplementMdl };
     }),
   };
 }
 
 function omitField(
   selection: CustomerConfigRequest,
-  field: SelectControl["field"],
+  field: string,
 ): CustomerConfigRequest {
   const next: CustomerConfigRequest = { ...selection };
-  delete next[field];
+  delete next[field as keyof CustomerConfigRequest];
   return next;
 }

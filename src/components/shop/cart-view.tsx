@@ -149,11 +149,19 @@ export function CartView() {
                   <Link href={`/catalog/${line.slug}`} className="font-medium underline-offset-4 hover:underline">
                     {line.name}
                   </Link>
-                  <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    {line.summary.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
+                  <dl className="mt-3 space-y-1.5 text-sm">
+                    {line.summary.map((item) => {
+                      const split = item.indexOf(": ");
+                      const label = split === -1 ? item : item.slice(0, split);
+                      const value = split === -1 ? "" : item.slice(split + 2);
+                      return (
+                        <div key={item} className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-4">
+                          <dt className="text-muted-foreground">{label}</dt>
+                          {value ? <dd>{value}</dd> : null}
+                        </div>
+                      );
+                    })}
+                  </dl>
                 </div>
                 <p className="text-sm">{formatMdl(line.unitPrice)}</p>
               </div>

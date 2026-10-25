@@ -1,3 +1,5 @@
+import { CONFIGURATOR_GLASS_TYPES } from "@/modules/configurator/glass-types";
+import { LED_TEMPERATURES } from "@/modules/configurator/lighting";
 import {
   CONFIGURATOR_FEATURE_KEYS,
   type CompatibilityRule,
@@ -5,6 +7,10 @@ import {
   type ConfiguratorRulesV1,
   type FeatureRule,
 } from "@/modules/catalog/rules/types";
+
+/** Customer-entered size range for a newly created model. */
+export const CUSTOMER_DIMENSION_MIN_MM = 300;
+export const CUSTOMER_DIMENSION_MAX_MM = 2900;
 
 /**
  * Safe defaults for models without configured rules:
@@ -25,6 +31,33 @@ export function defaultConfiguratorRules(): ConfiguratorRulesV1 {
     features,
     compatibility: defaultCompatibilityRules(),
   };
+}
+
+/**
+ * A new model does not fix size, glass, or LED color.
+ * The customer sets those on the product page; everything else stays fixed.
+ */
+export function newModelConfiguratorRules(): ConfiguratorRulesV1 {
+  const rules = defaultConfiguratorRules();
+  const dimensions = {
+    mode: "EDITABLE" as const,
+    minMm: CUSTOMER_DIMENSION_MIN_MM,
+    maxMm: CUSTOMER_DIMENSION_MAX_MM,
+    stepMm: null,
+  };
+  rules.dimensions.width = { ...dimensions };
+  rules.dimensions.height = { ...dimensions };
+  rules.features.width = { mode: "EDITABLE", allowedValues: [] };
+  rules.features.height = { mode: "EDITABLE", allowedValues: [] };
+  rules.features.glassType = {
+    mode: "EDITABLE",
+    allowedValues: CONFIGURATOR_GLASS_TYPES.map((item) => item.id),
+  };
+  rules.features.lightTemp = {
+    mode: "EDITABLE",
+    allowedValues: LED_TEMPERATURES.map((item) => String(item.id)),
+  };
+  return rules;
 }
 
 /** Structural dependencies confirmed by existing lighting/processing structure. */

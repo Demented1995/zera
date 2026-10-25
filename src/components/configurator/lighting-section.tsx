@@ -28,6 +28,8 @@ type LightingSectionProps = {
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
+  /** Model setup leaves LED color to the customer. */
+  showTemperature?: boolean;
   onChange: (next: LightingConfig) => void;
 };
 
@@ -40,6 +42,7 @@ export function LightingSection({
   widthMm,
   heightMm,
   shapeIsRectangular,
+  showTemperature = true,
   onChange,
 }: LightingSectionProps) {
   function setLightingType(lightingType: LightingType) {
@@ -92,14 +95,8 @@ export function LightingSection({
   const showElectrical = lighting.lightingType !== "none";
 
   return (
-    <section className="space-y-5 rounded-xl border border-border bg-card p-5">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">Iluminare LED</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tip iluminare, sisteme față/spate independente, comenzi și alimentare.
-          Lungimea LED se recalculează automat (cu supliment 10%).
-        </p>
-      </div>
+    <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+      <h2 className="text-sm font-semibold text-foreground">Iluminare LED</h2>
 
       <div className="grid gap-2">
         <Label htmlFor="lightingType">Tip iluminare</Label>
@@ -126,6 +123,7 @@ export function LightingSection({
           widthMm={widthMm}
           heightMm={heightMm}
           shapeIsRectangular={shapeIsRectangular}
+          showTemperature={showTemperature}
           onChange={patchFront}
         />
       ) : null}
@@ -137,20 +135,17 @@ export function LightingSection({
           widthMm={widthMm}
           heightMm={heightMm}
           shapeIsRectangular={shapeIsRectangular}
+          showTemperature={showTemperature}
           onChange={patchBack}
         />
       ) : null}
 
       {showElectrical ? (
         <>
-          <fieldset className="space-y-3 rounded-lg border border-border p-3">
+          <fieldset className="space-y-2 rounded-lg border border-border p-2.5">
             <legend className="px-1 text-xs font-medium text-foreground">
               Comenzi / întrerupătoare
             </legend>
-            <p className="text-xs text-muted-foreground">
-              Nu se presupune automat câte senzori pentru față+spate. Touch
-              include sablarea simbolului.
-            </p>
             {lighting.switches.map((sw, index) => (
               <div
                 key={`sw-${index}`}
@@ -244,9 +239,6 @@ export function LightingSection({
                   })
                 }
               />
-              <p className="text-xs text-muted-foreground">
-                Număr explicit — nu se deduce din putere/dimensiune.
-              </p>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="electricalConnection">Conexiune electrică</Label>
@@ -268,20 +260,13 @@ export function LightingSection({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">
-                Selecție salvată; cost suplimentar doar prin catalog asociat.
-              </p>
             </div>
           </fieldset>
 
-          <fieldset className="space-y-3 rounded-lg border border-border p-3">
+          <fieldset className="space-y-2 rounded-lg border border-border p-2.5">
             <legend className="px-1 text-xs font-medium text-foreground">
               Componente tehnice suplimentare
             </legend>
-            <p className="text-xs text-muted-foreground">
-              Nu se adaugă automat componente obligatorii până la reguli
-              admin. Fără material/preț asociat → INCOMPLETE.
-            </p>
             <div className="grid gap-2">
               {lighting.extraComponents.map((extra) => {
                 const meta = EXTRA_COMPONENTS.find((item) => item.id === extra.id)!;
@@ -353,6 +338,7 @@ function LedSystemFields({
   widthMm,
   heightMm,
   shapeIsRectangular,
+  showTemperature,
   onChange,
 }: {
   title: string;
@@ -360,6 +346,7 @@ function LedSystemFields({
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
+  showTemperature: boolean;
   onChange: (patch: Partial<LedSystemConfig>) => void;
 }) {
   const preview =
@@ -416,29 +403,28 @@ function LedSystemFields({
             ))}
           </select>
         </div>
-        <div className="grid gap-1.5">
-          <Label>Temperatură</Label>
-          <select
-            className={selectClassName()}
-            value={String(system.temperatureK)}
-            onChange={(event) =>
-              onChange({
-                temperatureK: Number(
-                  event.target.value,
-                ) as LedSystemConfig["temperatureK"],
-              })
-            }
-          >
-            {LED_TEMPERATURES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">
-            Salvată în config; nu modifică prețul fără regulă explicită.
-          </p>
-        </div>
+        {showTemperature ? (
+          <div className="grid gap-1.5">
+            <Label>Temperatură</Label>
+            <select
+              className={selectClassName()}
+              value={String(system.temperatureK)}
+              onChange={(event) =>
+                onChange({
+                  temperatureK: Number(
+                    event.target.value,
+                  ) as LedSystemConfig["temperatureK"],
+                })
+              }
+            >
+              {LED_TEMPERATURES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
       </div>
 
       {"error" in preview ? (
@@ -462,12 +448,6 @@ function LedSystemFields({
             <dd className="font-medium">
               {preview.totalLengthM.toFixed(2)} m
               {preview.source === "manual" ? " (manual)" : ""}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-2 sm:col-span-2 text-xs text-muted-foreground">
-            <dt>Cost LED</dt>
-            <dd>
-              se calculează din catalog (lungime × preț/m) — vezi sumar
             </dd>
           </div>
         </dl>
@@ -495,10 +475,6 @@ function LedSystemFields({
                 : undefined
             }
           />
-          <p className="text-xs text-muted-foreground">
-            Introduceți lungimea de bază; suplimentul 10% se aplică o singură
-            dată.
-          </p>
         </div>
       ) : null}
     </fieldset>

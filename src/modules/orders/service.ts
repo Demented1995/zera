@@ -10,8 +10,9 @@ import { clearInactiveComponents, coerceConfiguratorState } from "@/modules/cata
 import { summarizeTechFeatures, type OfferTechSummary } from "@/modules/offers/snapshots";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { recalculateFromConfigPayload } from "@/modules/offers/recalc";
+import { loadCatalogMaterialsForEngine } from "@/modules/pricing/queries";
 import { nextOrderNumber } from "@/modules/orders/codes";
-import { acceptedRetailPrice } from "@/modules/orders/public";
+import { acceptedPayablePrice } from "@/modules/orders/public";
 
 export type OrderMutation =
   | { ok: true; id: string; number: string; retailPrice: number; currency: "MDL" }
@@ -61,10 +62,13 @@ export async function quoteOrderConfiguration(input: {
   }
 
   const rules = resolveConfiguratorRules(model.configuratorRulesJson);
+  const materials = await loadCatalogMaterialsForEngine();
   const validated = validateCustomerConfig({
     modelDefault,
     rules,
     request: input.request,
+    materials,
+    customerZerosUnset: true,
   });
   if (!validated.ok || validated.rejected.length > 0) {
     return {
@@ -76,8 +80,9 @@ export async function quoteOrderConfiguration(input: {
   const pricedConfig = clearInactiveComponents(validated.config);
   const { calculation } = await recalculateFromConfigPayload(
     pricedConfig as unknown as Record<string, unknown>,
+    { zeroUnsetSwitchPrice: true },
   );
-  const unitPrice = acceptedRetailPrice(calculation);
+  const unitPrice = acceptedPayablePrice(calculation);
   if (unitPrice == null) {
     return { ok: false, message: "Preț indisponibil momentan." };
   }

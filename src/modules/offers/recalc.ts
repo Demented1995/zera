@@ -52,6 +52,7 @@ function asState(raw: Record<string, unknown>): ConfiguratorState {
 
 export async function recalculateFromConfigPayload(
   raw: Record<string, unknown>,
+  options?: { zeroUnsetSwitchPrice?: boolean },
 ): Promise<{
   state: ConfiguratorState;
   calculation: CalculationResult | null;
@@ -66,6 +67,7 @@ export async function recalculateFromConfigPayload(
     state,
     materials,
     rules: toPricingRules(settings),
+    zeroUnsetSwitchPrice: options?.zeroUnsetSwitchPrice,
   });
   return {
     state,

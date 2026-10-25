@@ -1,6 +1,7 @@
 import { requireStaffSession } from "@/lib/auth/guards";
 import { MaterialsView } from "@/components/materials/materials-view";
 import { canManageMaterials } from "@/modules/materials/permissions";
+import { ensureUnpricedCatalog } from "@/modules/materials/ensure-unpriced-catalog";
 import {
   listAllMaterialCategories,
   listMaterials,
@@ -20,6 +21,7 @@ export const metadata = {
 export default async function MaterialePage() {
   const session = await requireStaffSession();
   const canManage = canManageMaterials(session.user.role);
+  await ensureUnpricedCatalog();
 
   const [categories, materials] = await Promise.all([
     listAllMaterialCategories(),

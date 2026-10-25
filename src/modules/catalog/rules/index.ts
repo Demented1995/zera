@@ -1,6 +1,9 @@
 export {
+  CUSTOMER_DIMENSION_MAX_MM,
+  CUSTOMER_DIMENSION_MIN_MM,
   defaultCompatibilityRules,
   defaultConfiguratorRules,
+  newModelConfiguratorRules,
   resolveConfiguratorRules,
 } from "@/modules/catalog/rules/defaults";
 export {

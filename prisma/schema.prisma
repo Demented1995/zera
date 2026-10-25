@@ -333,8 +333,9 @@ model Material {
   internalCode  String?          @unique
   /// Stable seed key for idempotent seeds (not shown as business field).
   seedKey       String?          @unique
-  categoryId    String
-  category      MaterialCategory @relation(fields: [categoryId], references: [id])
+  /// Null until an admin assigns the category from the unpriced list.
+  categoryId    String?
+  category      MaterialCategory? @relation(fields: [categoryId], references: [id])
   /// Unit price in MDL. Null means unset — never treat as 0.
   unitPrice     Decimal?         @db.Decimal(12, 2)
   unitOfMeasure String
@@ -362,6 +363,12 @@ model MaterialPriceHistory {
   changedBy     User      @relation(fields: [changedById], references: [id])
 
   @@index([materialId, changedAt])
+}
+
+/// Seed keys an admin removed from the unpriced list. Not recreated on page load.
+model DismissedMaterialSeed {
+  seedKey     String   @id
+  dismissedAt DateTime @default(now())
 }
 
 /// Singleton global pricing rules (markups, curved-edge add, sandblast minimum).

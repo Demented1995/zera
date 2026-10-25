@@ -11,6 +11,7 @@ import type {
 } from "@/modules/catalog/preview/types";
 import type { PlaceOrderInput, PlaceOrderResult } from "@/modules/orders/public";
 import type { CartDraft } from "@/modules/shop/cart";
+import { selectedCartLines } from "@/modules/shop/cart-summary";
 
 type QuoteAction = (input: {
   modelId: string;
@@ -91,10 +92,7 @@ export function ProductPreviewScreen({
                   return;
                 }
                 const image = customer.gallery.find((item) => item.isPrimary) ?? customer.gallery[0];
-                const summary = [
-                  ...(customer.productCopy?.specs ?? []).map((spec) => `${spec.label}: ${spec.value}`),
-                  ...(customer.productCopy?.extraSpecs ?? []).map((spec) => `${spec.label}: ${spec.value}`),
-                ].slice(0, 8);
+                const summary = selectedCartLines(customer.controls);
                 onAddToCart({
                   modelId,
                   slug: slug || customer.productCopy?.seo.slug || "",

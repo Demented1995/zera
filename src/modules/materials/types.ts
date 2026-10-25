@@ -10,8 +10,8 @@ export type MaterialDTO = {
   id: string;
   name: string;
   internalCode: string | null;
-  categoryId: string;
-  categoryName: string;
+  categoryId: string | null;
+  categoryName: string | null;
   unitPrice: string | null;
   unitOfMeasure: string;
   currency: string;

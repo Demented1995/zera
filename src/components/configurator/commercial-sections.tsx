@@ -41,22 +41,14 @@ export function CommercialSections({
   }
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Manoperă</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Operațiuni de producție — intră în sinecost. Tarifele sunt
-            configurabile de ADMIN; nu se inventează rate. Nu dublează costul
-            componentelor deja din catalog.
+    <div className="space-y-3">
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold text-foreground">Manoperă</h2>
+        {!canEditTariffs ? (
+          <p className="text-xs text-muted-foreground">
+            Editarea tarifelor este rezervată administratorului.
           </p>
-          {!canEditTariffs ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Manager: vedeți prețurile calculate; editarea tarifelor globale e
-              rezervată ADMIN.
-            </p>
-          ) : null}
-        </div>
+        ) : null}
 
         <div className="space-y-2">
           {commercial.laborOps.map((op) => {
@@ -133,15 +125,8 @@ export function CommercialSections({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Ambalare</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Calcul doar pe reguli admin. Ambalarea produsului poate intra în
-            sinecost; ambalarea extra client e afișată separat (fără adaos
-            automat).
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Ambalare</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label>Tip ambalare</Label>
@@ -220,14 +205,8 @@ export function CommercialSections({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Livrare</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Separată de prețul oglinzii. Fără tarife/km inventate — doar tarife
-            centrale admin.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Livrare</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label>Tip livrare</Label>
@@ -318,14 +297,8 @@ export function CommercialSections({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Montaj</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Separat de sinecostul de producție. Fără costuri inventate pe etaj /
-            complexitate — doar tarif admin + câmpuri informative.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Montaj</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label>Tip montaj</Label>
@@ -438,14 +411,8 @@ export function CommercialSections({
         </div>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Nivel preț ofertă</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Total ofertă = preț produs (en-gros sau retail) + servicii
-            comerciale.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Nivel preț ofertă</h2>
         <div className="flex flex-wrap gap-4 text-sm">
           <label className="flex items-center gap-2">
             <input

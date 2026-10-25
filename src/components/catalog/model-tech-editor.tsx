@@ -13,7 +13,6 @@ import {
   defaultCommercialConfig,
   type CommercialConfig,
 } from "@/modules/configurator/commercial";
-import { CONFIGURATOR_GLASS_TYPES } from "@/modules/configurator/glass-types";
 import {
   defaultLightingConfig,
   type LightingConfig,
@@ -209,10 +208,10 @@ export function ModelTechEditor({
       <div className="space-y-5">
         <section className="space-y-4 rounded-xl border border-border bg-card p-5">
           <div>
-            <h3 className="text-sm font-semibold">Configurație tehnică implicită</h3>
+            <h3 className="text-sm font-semibold">Configurație tehnică</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Aceeași structură ca în configuratorul profesional. Prețul vine din
-              motorul central — fără preț fix manual.
+              Forma, iluminarea și prelucrările definesc modelul. Dimensiunile,
+              tipul de sticlă și temperatura LED le introduce clientul.
             </p>
           </div>
 
@@ -230,48 +229,11 @@ export function ModelTechEditor({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="model-width">Lățime implicită (mm)</Label>
-              <Input
-                id="model-width"
-                inputMode="decimal"
-                value={form.widthMm}
-                onChange={(event) => update("widthMm", event.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="model-height">Înălțime implicită (mm)</Label>
-              <Input
-                id="model-height"
-                inputMode="decimal"
-                value={form.heightMm}
-                onChange={(event) => update("heightMm", event.target.value)}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Limitele min/max pentru client vor fi configurate în Stage 6.2 —
-            necompletate acum.
-          </p>
-
-          <div className="grid gap-2">
-            <Label htmlFor="model-glass">Tip sticlă</Label>
-            <select
-              id="model-glass"
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-              value={form.glassTypeId}
-              onChange={(event) => update("glassTypeId", event.target.value)}
-            >
-              {CONFIGURATOR_GLASS_TYPES.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.label}
-                  {!type.hasConfirmedPricing ? " — preț neconfigurat" : ""}
-                </option>
-              ))}
-            </select>
+            {selectedShape ? (
+              <p className="text-xs text-muted-foreground">
+                {selectedShape.description}
+              </p>
+            ) : null}
           </div>
 
           {selectedShape?.edgeMode === "manual" ? (
@@ -306,11 +268,15 @@ export function ModelTechEditor({
           widthMm={parsed.ok ? parsed.widthMm : null}
           heightMm={parsed.ok ? parsed.heightMm : null}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
+          showTemperature={false}
           onChange={(lighting) => update("lighting", lighting)}
         />
 
         <ProcessingSections
           processing={form.processing}
+          widthMm={parsed.ok ? parsed.widthMm : null}
+          heightMm={parsed.ok ? parsed.heightMm : null}
+          shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
           onChange={(processing) => update("processing", processing)}
         />
 

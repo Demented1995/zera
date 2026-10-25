@@ -84,7 +84,7 @@ const defogSizeIds = DEFOG_SIZES.map((item) => item.id) as [
 ];
 const defogControlIds = DEFOG_CONTROLS.map((item) => item.id) as [
   "mechanical",
-  ...Array<"mechanical" | "touch">,
+  ...Array<"mechanical" | "touch" | "motion">,
 ];
 const frameTypeIds = FRAME_TYPES.map((item) => item.id) as [
   "none",

@@ -254,8 +254,8 @@ export function ConfiguratorWorkspace({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-      <div className="space-y-5">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+      <div className="space-y-3">
         <ConfigToolbar
           configId={configId}
           configCode={configCode}
@@ -274,16 +274,8 @@ export function ConfiguratorWorkspace({
           }}
         />
 
-        <section className="space-y-5 rounded-xl border border-border bg-card p-5">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">
-              Configurare
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Stage 5.5 — configurator complet cu salvare și oferte. Actualizare
-              automată la modificare.
-            </p>
-          </div>
+        <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+          <h2 className="text-sm font-semibold text-foreground">Configurare</h2>
 
           <div className="grid gap-2">
             <Label htmlFor="shape">Formă oglindă</Label>
@@ -306,7 +298,7 @@ export function ConfiguratorWorkspace({
             ) : null}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="width">Lățime (mm)</Label>
               <Input
@@ -369,13 +361,6 @@ export function ConfiguratorWorkspace({
               ))}
             </fieldset>
           ) : null}
-
-          {selectedShape?.edgeMode === "preset" ? (
-            <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-              Adaosurile pe laturi urmează regula confirmată din motorul de calcul
-              (nu sunt inventate în interfață).
-            </p>
-          ) : null}
         </section>
 
         <LightingSection
@@ -388,6 +373,9 @@ export function ConfiguratorWorkspace({
 
         <ProcessingSections
           processing={form.processing}
+          widthMm={parsed.widthMm}
+          heightMm={parsed.heightMm}
+          shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
           onChange={(processing) => update("processing", processing)}
         />
 

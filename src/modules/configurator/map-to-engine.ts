@@ -1,5 +1,6 @@
 import {
   MATERIAL_SEED_KEYS,
+  UNCONFIRMED_UOM,
   computeGlassArea,
   resolveCurvedEdgeAddsMm,
   type CalculationInput,
@@ -30,6 +31,7 @@ import {
   type ProcessingConfig,
 } from "@/modules/configurator/processing";
 import {
+  curvedEdgesForShape,
   getShapeById,
   type ConfiguratorShape,
 } from "@/modules/configurator/shapes";
@@ -59,6 +61,22 @@ export type ConfiguratorQuote = {
   blockers: string[];
   calculation: CalculationResult | null;
 };
+
+function glassCatalogReady(
+  glassType: ConfiguratorGlassType,
+  materials: CatalogMaterial[],
+): boolean {
+  if (!glassType.materialSeedKey) {
+    return glassType.hasConfirmedPricing;
+  }
+  const material = materials.find((item) => item.seedKey === glassType.materialSeedKey);
+  return Boolean(
+    material &&
+      material.isActive &&
+      material.unitPrice !== null &&
+      material.unitOfMeasure !== UNCONFIRMED_UOM,
+  );
+}
 
 function applyGlassTypeToCatalog(
   materials: CatalogMaterial[],
@@ -90,13 +108,14 @@ export function buildCalculationInput(options: {
   glassType: ConfiguratorGlassType;
   materials: CatalogMaterial[];
   rules: PricingRules;
+  zeroUnsetSwitchPrice?: boolean;
 }): CalculationInput | { error: string } {
   const { state, shape, glassType, materials, rules } = options;
 
   if (!shape.engineShape) {
     return {
       error:
-        "Formula geometrică pentru această formă nu este încă confirmată. Selectați o formă cu reguli definite sau Personalizată cu adaosuri manuale.",
+        "Formula geometrică pentru această formă nu este încă confirmată.",
     };
   }
 
@@ -108,8 +127,8 @@ export function buildCalculationInput(options: {
   };
   let explicitCurvedEdgeAddsMm: CurvedEdgeAddsMm | undefined;
 
-  if (shape.edgeMode === "preset" && shape.presetEdges) {
-    curvedEdges = { ...shape.presetEdges };
+  if (shape.edgeMode === "preset") {
+    curvedEdges = curvedEdgesForShape(shape, state.widthMm, state.heightMm);
   } else if (shape.edgeMode === "manual") {
     explicitCurvedEdgeAddsMm = { ...state.manualEdgeAddsMm };
   } else if (shape.edgeMode === "unavailable") {
@@ -165,8 +184,16 @@ export function buildCalculationInput(options: {
     laborLines: commercialBuilt.laborLines,
     packagingIncludedLines: commercialBuilt.packagingIncludedLines,
     serviceLines: commercialBuilt.serviceLines,
-    materials: applyGlassTypeToCatalog(materials, glassType),
+    materials:
+      options.zeroUnsetSwitchPrice && !glassType.hasConfirmedPricing
+        ? materials
+        : applyGlassTypeToCatalog(materials, glassType),
     rules,
+    glassSeedKey:
+      options.zeroUnsetSwitchPrice && !glassType.hasConfirmedPricing
+        ? undefined
+        : (glassType.materialSeedKey ?? undefined),
+    zeroUnsetSwitchPrice: options.zeroUnsetSwitchPrice,
   };
 }
 
@@ -194,6 +221,7 @@ export function quoteConfigurator(options: {
   state: ConfiguratorState;
   materials: CatalogMaterial[];
   rules: PricingRules;
+  zeroUnsetSwitchPrice?: boolean;
 }): ConfiguratorQuote {
   const lighting = options.state.lighting ?? defaultLightingConfig();
   const processing = options.state.processing ?? defaultProcessingConfig();
@@ -205,7 +233,13 @@ export function quoteConfigurator(options: {
     commercial,
   };
   const shape = getShapeById(state.shapeId);
-  const glassType = getGlassTypeById(state.glassTypeId);
+  const listedGlass = getGlassTypeById(state.glassTypeId);
+  const glassType = listedGlass
+    ? {
+        ...listedGlass,
+        hasConfirmedPricing: glassCatalogReady(listedGlass, options.materials),
+      }
+    : listedGlass;
   const blockers: string[] = [];
 
   if (!shape) {
@@ -221,6 +255,7 @@ export function quoteConfigurator(options: {
         id: state.glassTypeId,
         label: "Necunoscut",
         hasConfirmedPricing: false,
+        materialSeedKey: null,
       },
       state,
       blockers: ["Formă invalidă."],
@@ -231,7 +266,7 @@ export function quoteConfigurator(options: {
     blockers.push("Tip de sticlă invalid.");
   }
 
-  if (glassType && !glassType.hasConfirmedPricing) {
+  if (glassType && !glassType.hasConfirmedPricing && !options.zeroUnsetSwitchPrice) {
     blockers.push(
       `Preț neconfigurat pentru sticla „${glassType.label}”. Nu se folosește tariful Standard.`,
     );
@@ -262,8 +297,8 @@ export function quoteConfigurator(options: {
     shape.edgeMode === "manual"
       ? state.manualEdgeAddsMm
       : resolveCurvedEdgeAddsMm(
-          shape.edgeMode === "preset" && shape.presetEdges
-            ? shape.presetEdges
+          shape.edgeMode === "preset"
+            ? curvedEdgesForShape(shape, state.widthMm, state.heightMm)
             : { left: false, right: false, top: false, bottom: false },
           options.rules.curvedEdgeAddMm,
         );
@@ -292,6 +327,7 @@ export function quoteConfigurator(options: {
     glassType: glassType!,
     materials: options.materials,
     rules: options.rules,
+    zeroUnsetSwitchPrice: options.zeroUnsetSwitchPrice,
   });
 
   if ("error" in input) {
@@ -312,7 +348,7 @@ export function quoteConfigurator(options: {
 
   const calculation = calculateMirrorPricing(input);
 
-  if (!glassType!.hasConfirmedPricing) {
+  if (!glassType!.hasConfirmedPricing && !options.zeroUnsetSwitchPrice) {
     if (
       !calculation.missingCosts.some(
         (item) =>

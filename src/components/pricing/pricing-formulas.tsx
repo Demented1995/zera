@@ -30,17 +30,17 @@ export function PricingFormulas({ settings }: PricingFormulasProps) {
           </dd>
         </div>
         <div className="rounded-lg border border-border px-3 py-2">
-          <dt className="text-muted-foreground">Sticlă dreptunghiulară</dt>
+          <dt className="text-muted-foreground">Pătrat și dreptunghi</dt>
           <dd className="mt-1 font-medium">
-            (lățime × înălțime / 1e6) × preț oglindă standard ({MATERIAL_CURRENCY}/m²)
+            (lățime × înălțime / 1e6) × preț oglindă standard ({MATERIAL_CURRENCY}/m²).
+            Fără adaos pe laturi.
           </dd>
         </div>
         <div className="rounded-lg border border-border px-3 py-2">
-          <dt className="text-muted-foreground">Forme speciale</dt>
+          <dt className="text-muted-foreground">Toate celelalte forme</dt>
           <dd className="mt-1 font-medium">
             ((l + stânga + dreapta) × (h + sus + jos) / 1e6) × preț forme speciale.
-            Adaos standard pe latură curbă: {settings.curvedEdgeAddMm} mm (doar pe
-            laturile marcate de admin).
+            Adaos de {settings.curvedEdgeAddMm} mm pe fiecare latură curbată.
           </dd>
         </div>
         <div className="rounded-lg border border-border px-3 py-2">

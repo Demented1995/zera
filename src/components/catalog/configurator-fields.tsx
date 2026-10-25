@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ type Props = {
   onPatch: (patch: PreviewPatch) => void;
 };
 
-export function ConfiguratorFields({ sections, controls, revision, onPatch }: Props) {
+export function ConfiguratorFields({ sections, controls, onPatch }: Props) {
   const dimensionControls = controls.filter(
     (control): control is Extract<PreviewControl, { kind: "dimension" }> =>
       control.kind === "dimension",
@@ -28,7 +28,12 @@ export function ConfiguratorFields({ sections, controls, revision, onPatch }: Pr
     dimensionControls.find((control) => control.field === "heightMm"),
     dimensionControls.find((control) => control.field === "widthMm"),
   ].filter((control) => control != null);
-  const fixed = controls.filter((control) => control.kind === "text");
+  const fixed = controls.filter(
+    (control) =>
+      control.kind === "text" &&
+      control.id !== "shape" &&
+      !(control.id === "sandblast" && control.valueLabel === "Sablare standard"),
+  );
   const editable = controls.filter(
     (control) => control.kind !== "text" && control.kind !== "dimension",
   );
@@ -46,7 +51,7 @@ export function ConfiguratorFields({ sections, controls, revision, onPatch }: Pr
         <div className="grid grid-cols-2 gap-3">
           {dimensions.map((control) => (
             <ControlField
-              key={`${control.id}-${control.value}-${revision}`}
+              key={control.id}
               control={control}
               onPatch={onPatch}
             />
@@ -95,17 +100,85 @@ function OptionSection({
   controls: PreviewControl[];
   onPatch: (patch: PreviewPatch) => void;
 }) {
+  const showTitle = section.id !== "glass";
   return (
     <section className="space-y-3">
-      <h4 className="text-xs font-medium tracking-[0.14em] text-foreground uppercase">
-        {section.title}
-      </h4>
+      {showTitle ? (
+        <h4 className="text-xs font-medium tracking-[0.14em] text-foreground uppercase">
+          {section.title}
+        </h4>
+      ) : null}
       <div className="space-y-4">
         {controls.map((control) => (
           <ControlField key={control.id} control={control} onPatch={onPatch} />
         ))}
       </div>
     </section>
+  );
+}
+
+function patchSelect(
+  control: Extract<PreviewControl, { kind: "select" }>,
+  raw: string,
+  onPatch: (patch: PreviewPatch) => void,
+) {
+  if (control.numeric) {
+    onPatch({
+      field: control.field as "frontLightTempK",
+      value: Number(raw),
+    });
+    return;
+  }
+  onPatch({
+    field: control.field as "shapeId",
+    value: raw,
+  });
+}
+
+function ChoiceGroup({
+  label,
+  value,
+  options,
+  onPick,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ id: string; label: string; supplementMdl?: number | null }>;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <fieldset className="space-y-2">
+      {label ? <legend className="text-sm font-medium">{label}</legend> : null}
+      {options.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {options.map((option) => {
+            const selected = option.id === value;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onPick(option.id)}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+                  selected
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-transparent text-foreground"
+                }`}
+              >
+                <span>{option.label}</span>
+                {option.supplementMdl != null ? (
+                  <span className={selected ? "text-background/80" : "text-muted-foreground"}>
+                    {formatSupplementMdl(option.supplementMdl)}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </fieldset>
   );
 }
 
@@ -131,66 +204,63 @@ function ControlField({
 
   if (control.kind === "toggle") {
     return (
-      <label className="flex items-center justify-between gap-4 py-1">
-        <span className="text-sm">{control.label}</span>
-        <input
-          type="checkbox"
-          className="size-4 accent-foreground"
-          checked={control.value}
-          onChange={(event) =>
-            onPatch({ field: control.field, value: event.target.checked })
-          }
-        />
-      </label>
+      <ChoiceGroup
+        label={control.label}
+        value={control.value ? "true" : "false"}
+        options={[
+          {
+            id: "false",
+            label: "Nu",
+            supplementMdl: control.supplementMdl == null ? null : 0,
+          },
+          { id: "true", label: "Da", supplementMdl: control.supplementMdl ?? null },
+        ]}
+        onPick={(id) =>
+          onPatch({
+            field: control.field,
+            value: id === "true",
+          })
+        }
+      />
     );
   }
 
   if (control.kind === "select") {
+    const useMenu = control.options.length > 4;
+    const label = control.id === "glassType" ? "" : control.label;
+    if (useMenu) {
+      return (
+        <div className="grid gap-1.5">
+          {label ? <Label htmlFor={control.id}>{label}</Label> : null}
+          {control.options.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
+          ) : (
+            <select
+              id={control.id}
+              className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
+              value={control.value}
+              onChange={(event) => patchSelect(control, event.target.value, onPatch)}
+            >
+              {control.options.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                  {option.supplementMdl != null
+                    ? ` (${formatSupplementMdl(option.supplementMdl)})`
+                    : ""}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      );
+    }
     return (
-      <fieldset className="space-y-1">
-        <legend className="mb-1 text-sm font-medium">{control.label}</legend>
-        {control.options.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
-        ) : (
-          control.options.map((option) => {
-            const selected = option.id === control.value;
-            return (
-              <label
-                key={option.id}
-                className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-1 py-1.5 hover:bg-muted/40"
-              >
-                <span className="flex min-w-0 items-center gap-2.5 text-sm">
-                  <input
-                    type="radio"
-                    name={control.id}
-                    className="size-4 accent-foreground"
-                    checked={selected}
-                    onChange={() => {
-                      if (control.numeric) {
-                        onPatch({
-                          field: control.field as "frontLightTempK",
-                          value: Number(option.id),
-                        });
-                        return;
-                      }
-                      onPatch({
-                        field: control.field as "shapeId",
-                        value: option.id,
-                      });
-                    }}
-                  />
-                  <span className="truncate">{option.label}</span>
-                </span>
-                {option.supplementMdl != null ? (
-                  <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                    {formatSupplementMdl(option.supplementMdl)}
-                  </span>
-                ) : null}
-              </label>
-            );
-          })
-        )}
-      </fieldset>
+      <ChoiceGroup
+        label={label}
+        value={control.value}
+        options={control.options}
+        onPick={(id) => patchSelect(control, id, onPatch)}
+      />
     );
   }
 
@@ -265,6 +335,13 @@ function DimensionField({
   onPatch: (patch: PreviewPatch) => void;
 }) {
   const [draft, setDraft] = useState(String(control.value));
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setDraft(String(control.value));
+    }
+  }, [control.value]);
 
   if (control.mode === "FIXED") {
     return (
@@ -289,7 +366,7 @@ function DimensionField({
     .join(" · ");
 
   function commit(next: number) {
-    if (!Number.isFinite(next) || next <= 0) {
+    if (!Number.isFinite(next) || next <= 0 || next === control.value) {
       setDraft(String(control.value));
       return;
     }
@@ -322,7 +399,13 @@ function DimensionField({
           inputMode="decimal"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => commit(Number(draft.replace(",", ".")))}
+          onFocus={() => {
+            focusedRef.current = true;
+          }}
+          onBlur={() => {
+            focusedRef.current = false;
+            commit(Number(draft.replace(",", ".")));
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               commit(Number(draft.replace(",", ".")));

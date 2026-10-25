@@ -53,7 +53,7 @@ export function ProductPage({
   const showDelivery = copy ? !isEmptyDocument(copy.deliveryDocument) : false;
 
   return (
-    <article className="overflow-x-clip bg-background text-foreground">
+    <article className="overflow-x-clip bg-background pb-24 text-foreground sm:pb-0">
       <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
         <ProductGallery images={customer.gallery} />
         <div className="min-w-0 space-y-8">
@@ -79,9 +79,9 @@ export function ProductPage({
                 ? formatMdl(customer.price.retailPrice)
                 : customer.price.message}
             </p>
-            {pending ? (
-              <p className="text-sm text-muted-foreground">Se actualizează prețul…</p>
-            ) : null}
+            <p className="min-h-5 text-sm text-muted-foreground">
+              {pending ? "Se actualizează prețul…" : ""}
+            </p>
           </div>
 
           {customer.notices.length > 0 ? (
@@ -123,6 +123,15 @@ export function ProductPage({
             />
           ) : null}
         </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:hidden">
+        <p className="text-[0.65rem] tracking-[0.16em] text-muted-foreground uppercase">Preț</p>
+        <p className="text-xl font-semibold tracking-tight">
+          {priceReady && customer.price.retailPrice != null
+            ? formatMdl(customer.price.retailPrice)
+            : customer.price.message}
+        </p>
       </div>
 
       <div className="mt-16 space-y-14 border-t border-border pt-14">

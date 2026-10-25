@@ -54,14 +54,18 @@ export async function loadMirrorPreview(input: {
       select: { id: true, altText: true, isPrimary: true },
     }),
   ] as const;
+  const materials = await loadCatalogMaterialsForEngine();
   const validated = validateCustomerConfig({
     modelDefault,
     rules,
     request: input.request,
+    materials,
+    customerZerosUnset: true,
   });
   const pricedConfig = clearInactiveComponents(validated.config);
   const { calculation, blockers } = await recalculateFromConfigPayload(
     pricedConfig as unknown as Record<string, unknown>,
+    { zeroUnsetSwitchPrice: true },
   );
 
   const assembled = assembleMirrorPreview({
@@ -79,7 +83,8 @@ export async function loadMirrorPreview(input: {
       priceSource: calculation
         ? {
             status: calculation.status,
-            retailPrice: calculation.retailPrice,
+            retailPrice:
+              calculation.financial?.offerRetail ?? calculation.retailPrice,
             missingCosts: calculation.missingCosts,
           }
         : null,
@@ -106,16 +111,13 @@ export async function loadMirrorPreview(input: {
   });
 
   const hasChoices = assembled.customer.controls.some(
-    (control) => control.kind === "select",
+    (control) => control.kind === "select" || control.kind === "toggle",
   );
   if (!hasChoices) {
     return { ok: true, ...assembled };
   }
 
-  const [settings, materials] = await Promise.all([
-    getPricingSettings(),
-    loadCatalogMaterialsForEngine(),
-  ]);
+  const settings = await getPricingSettings();
   return {
     ok: true,
     customer: {
@@ -218,7 +220,7 @@ export async function loadProductPage(input: {
       available: false,
       retailPrice: null,
       currency: "MDL",
-      message: "Preț indisponibil momentan",
+      message: "Prețul nu poate fi calculat.",
     },
     notices: [preview.message],
   };

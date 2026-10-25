@@ -98,9 +98,10 @@ export function calculateMirrorPricing(
 
   // --- Glass ---
   const glassKey =
-    input.shape === "RECTANGLE"
+    input.glassSeedKey ??
+    (input.shape === "RECTANGLE"
       ? MATERIAL_SEED_KEYS.glassRectangle
-      : MATERIAL_SEED_KEYS.glassSpecial;
+      : MATERIAL_SEED_KEYS.glassSpecial);
   const glassMaterial = findMaterial(input.materials, glassKey);
   const glassBlock = materialBlockingReason(
     glassMaterial,
@@ -272,6 +273,25 @@ export function calculateMirrorPricing(
     }
 
     if (!detail.seedKey) {
+      if (
+        input.zeroUnsetSwitchPrice &&
+        (detail.group === "switch" || detail.group === "defog")
+      ) {
+        componentAmounts.push(0);
+        lines.push({
+          kind: "COMPONENT",
+          key: detail.key,
+          label: detail.label,
+          quantity: detail.quantity,
+          unit: detail.unit,
+          unitPrice: 0,
+          amount: 0,
+          note: detail.note,
+        });
+        pushCostBucket(electricalBuckets, processingBuckets, detail.group, 0);
+        continue;
+      }
+
       const override = detail.unitPriceOverride;
       if (
         override !== null &&
@@ -318,6 +338,26 @@ export function calculateMirrorPricing(
 
     const material = findMaterial(input.materials, detail.seedKey);
     const block = materialBlockingReason(material, detail.label);
+
+    if (
+      block &&
+      input.zeroUnsetSwitchPrice &&
+      (detail.group === "switch" || detail.group === "defog")
+    ) {
+      componentAmounts.push(0);
+      lines.push({
+        kind: "COMPONENT",
+        key: detail.key,
+        label: material?.name ?? detail.label,
+        quantity: detail.quantity,
+        unit: detail.unit,
+        unitPrice: 0,
+        amount: 0,
+        note: detail.note,
+      });
+      pushCostBucket(electricalBuckets, processingBuckets, detail.group, 0);
+      continue;
+    }
 
     if (block) {
       missingCosts.push(block);

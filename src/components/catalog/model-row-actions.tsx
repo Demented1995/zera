@@ -2,24 +2,28 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
   archiveMirrorModelAction,
+  deleteMirrorModelAction,
   duplicateMirrorModelAction,
 } from "@/modules/catalog/actions";
 
 type Props = {
   id: string;
+  name: string;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   canManage: boolean;
 };
 
-export function ModelRowActions({ id, status, canManage }: Props) {
+export function ModelRowActions({ id, name, status, canManage }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   function duplicate() {
     startTransition(async () => {
@@ -34,6 +38,19 @@ export function ModelRowActions({ id, status, canManage }: Props) {
       } else {
         router.refresh();
       }
+    });
+  }
+
+  function remove() {
+    startTransition(async () => {
+      const result = await deleteMirrorModelAction(id);
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
+      setConfirmDelete(false);
+      router.refresh();
     });
   }
 
@@ -110,6 +127,25 @@ export function ModelRowActions({ id, status, canManage }: Props) {
           >
             {status === "ARCHIVED" ? "Reactivează" : "Arhivează"}
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => setConfirmDelete(true)}
+          >
+            Elimină
+          </Button>
+          <ConfirmDialog
+            open={confirmDelete}
+            onOpenChange={setConfirmDelete}
+            title="Eliminați modelul?"
+            description={`„${name}” dispare din catalog. Comenzile deja plasate își păstrează prețul și configurația.`}
+            confirmLabel="Elimină"
+            destructive
+            pending={pending}
+            onConfirm={remove}
+          />
         </>
       ) : null}
     </div>

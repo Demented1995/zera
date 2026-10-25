@@ -39,6 +39,24 @@ export function acceptedRetailPrice(
   return Math.round(calculation.retailPrice * 100) / 100;
 }
 
+/** Product retail plus delivery and mounting. Unset services are already 0. */
+export function acceptedPayablePrice(
+  calculation: {
+    status: string;
+    retailPrice: number | null;
+    financial?: { offerRetail: number | null } | null;
+  } | null,
+): number | null {
+  if (!calculation || calculation.status !== "COMPLETE") {
+    return null;
+  }
+  const payable = calculation.financial?.offerRetail ?? calculation.retailPrice;
+  if (payable == null || !Number.isFinite(payable) || payable < 0) {
+    return null;
+  }
+  return Math.round(payable * 100) / 100;
+}
+
 export function orderBalance(retailPrice: number, advanceAmount: number): number {
   return Math.round((retailPrice - advanceAmount) * 100) / 100;
 }

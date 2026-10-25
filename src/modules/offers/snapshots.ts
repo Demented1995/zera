@@ -8,6 +8,7 @@ import {
   LED_STRIP_TYPES,
 } from "@/modules/configurator/lighting";
 import { lightingUsesBack, lightingUsesFront } from "@/modules/configurator/lighting";
+import { DEFOG_CONTROLS } from "@/modules/configurator/processing";
 
 /**
  * Customer-safe calculation excerpt — NEVER includes sinecost / internal cost lines.
@@ -106,7 +107,10 @@ export function summarizeTechFeatures(state: ConfiguratorState): OfferTechSummar
     );
   }
   if (state.processing.defogEnabled) {
-    features.push(`Dezaburire ${state.processing.defogSize}`);
+    const control = DEFOG_CONTROLS.find(
+      (item) => item.id === state.processing.defogControl,
+    )?.label;
+    features.push(`Dezaburire · ${control ?? "Întrerupător comun"}`);
   }
   if (state.processing.frameType !== "none") {
     features.push(`Ramă: ${state.processing.frameType}`);

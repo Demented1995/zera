@@ -6,7 +6,6 @@ import {
   BRANDING_OPTIONS,
   CUTOUT_TYPES,
   DEFOG_CONTROLS,
-  DEFOG_SIZES,
   FACET_SHAPES,
   FACET_WIDTHS,
   FRAME_TYPES,
@@ -14,6 +13,7 @@ import {
   PRODUCT_ACCESSORIES,
   SANDBLAST_FINISHES,
   computeSandblastBandsAreaM2,
+  mirrorPerimeterM,
   type CutoutTypeId,
   type ProcessingConfig,
   type SandblastFinishId,
@@ -21,6 +21,9 @@ import {
 
 type ProcessingSectionsProps = {
   processing: ProcessingConfig;
+  widthMm: number | null;
+  heightMm: number | null;
+  shapeIsRectangular: boolean;
   onChange: (next: ProcessingConfig) => void;
 };
 
@@ -30,6 +33,9 @@ function selectClass() {
 
 export function ProcessingSections({
   processing,
+  widthMm,
+  heightMm,
+  shapeIsRectangular,
   onChange,
 }: ProcessingSectionsProps) {
   function patch(partial: Partial<ProcessingConfig>) {
@@ -37,19 +43,21 @@ export function ProcessingSections({
   }
 
   const sandblastActive = processing.sandblastFinish !== "none";
+  const standardSandblast = processing.sandblastFinish === "standard";
   const bandsArea = computeSandblastBandsAreaM2(processing.sandblastBands);
+  const glassAreaM2 =
+    shapeIsRectangular && widthMm != null && heightMm != null && widthMm > 0 && heightMm > 0
+      ? (widthMm * heightMm) / 1_000_000
+      : null;
+  const perimeterM =
+    widthMm != null && heightMm != null
+      ? mirrorPerimeterM(widthMm, heightMm, shapeIsRectangular)
+      : null;
 
   return (
-    <div className="space-y-5">
-      {/* Prelucrări */}
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Prelucrări</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sablare decorativă, fațete și gravură. Sablarea simbolului touch este
-            inclusă în senzor — nu se taxează separat.
-          </p>
-        </div>
+    <div className="space-y-3">
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold text-foreground">Prelucrări</h2>
 
         <div className="grid gap-2">
           <Label>Sablare decorativă</Label>
@@ -73,7 +81,15 @@ export function ProcessingSections({
           </select>
         </div>
 
-        {sandblastActive ? (
+        {standardSandblast ? (
+          <p className="text-sm text-muted-foreground">
+            {glassAreaM2 != null
+              ? `Suprafață oglindă: ${glassAreaM2.toLocaleString("ro-RO", { maximumFractionDigits: 4 })} m² × tariful de sablare din catalog.`
+              : "Suprafața oglinzii nu este confirmată pentru această formă."}
+          </p>
+        ) : null}
+
+        {sandblastActive && !standardSandblast ? (
           <fieldset className="space-y-3 rounded-lg border border-border p-3">
             <legend className="px-1 text-xs font-medium">Arie sablată</legend>
             <div className="flex flex-wrap gap-3 text-sm">
@@ -191,20 +207,15 @@ export function ProcessingSections({
                   Adaugă bandă
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Arie totală benzi: {bandsArea.toFixed(4)} m² · minim 100 MDL
-                  o dată pe operațiune (nu pe bandă).
+                  Arie totală benzi: {bandsArea.toFixed(4)} m²
                 </p>
               </div>
             )}
-            {processing.sandblastFinish === "standard" ? (
-              <p className="text-xs text-muted-foreground">
-                Standard: max(100, arie × 600) MDL din catalog.
-              </p>
-            ) : (
+            {processing.sandblastFinish !== "standard" ? (
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 Tarif vopsit / laser neconfirmat — configurație admin necesară.
               </p>
-            )}
+            ) : null}
           </fieldset>
         ) : null}
 
@@ -261,18 +272,11 @@ export function ProcessingSections({
                   ))}
                 </select>
               </div>
-              <div className="grid gap-1.5">
-                <Label>Lungime prelucrată (m)</Label>
-                <Input
-                  inputMode="decimal"
-                  value={String(processing.facetLengthM || "")}
-                  onChange={(event) =>
-                    patch({
-                      facetLengthM: Number(event.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
+              <p className="text-sm text-muted-foreground sm:col-span-3">
+                {perimeterM != null
+                  ? `Perimetru: ${perimeterM.toLocaleString("ro-RO", { maximumFractionDigits: 3 })} m`
+                  : "Perimetrul nu este confirmat pentru această formă."}
+              </p>
             </div>
           ) : null}
         </fieldset>
@@ -300,53 +304,18 @@ export function ProcessingSections({
                   }
                 />
               </div>
-              <div className="grid gap-1.5">
-                <Label>Cantitate</Label>
-                <Input
-                  inputMode="numeric"
-                  value={String(processing.engravingQty)}
-                  onChange={(event) =>
-                    patch({
-                      engravingQty: Math.max(
-                        0,
-                        Math.floor(Number(event.target.value) || 0),
-                      ),
-                    })
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Cost admin (MDL/buc)</Label>
-                <Input
-                  inputMode="decimal"
-                  value={
-                    processing.engravingUnitCost === null
-                      ? ""
-                      : String(processing.engravingUnitCost)
-                  }
-                  onChange={(event) => {
-                    const raw = event.target.value.trim();
-                    patch({
-                      engravingUnitCost: raw === "" ? null : Number(raw),
-                    });
-                  }}
-                  placeholder="neconfigurat"
-                />
-              </div>
+              <p className="text-sm text-muted-foreground sm:col-span-3">
+                {glassAreaM2 != null
+                  ? `Suprafață oglindă: ${glassAreaM2.toLocaleString("ro-RO", { maximumFractionDigits: 4 })} m². Tariful se setează la materialul Gravură.`
+                  : "Suprafața oglinzii nu este confirmată pentru această formă."}
+              </p>
             </div>
           ) : null}
         </fieldset>
       </section>
 
-      {/* Dezaburire */}
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Dezaburire</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Dimensiuni 300×400 / 400×500. Touch dezaburire ≠ touch LED — senzor
-            extra taxat separat. Folie din catalog.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Dezaburire</h2>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -356,73 +325,30 @@ export function ProcessingSections({
           Include dezaburire
         </label>
         {processing.defogEnabled ? (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="grid gap-1.5">
-              <Label>Dimensiune</Label>
-              <select
-                className={selectClass()}
-                value={processing.defogSize}
-                onChange={(event) =>
-                  patch({
-                    defogSize: event.target
-                      .value as ProcessingConfig["defogSize"],
-                  })
-                }
-              >
-                {DEFOG_SIZES.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Comandă</Label>
-              <select
-                className={selectClass()}
-                value={processing.defogControl}
-                onChange={(event) =>
-                  patch({
-                    defogControl: event.target
-                      .value as ProcessingConfig["defogControl"],
-                  })
-                }
-              >
-                {DEFOG_CONTROLS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Cantitate</Label>
-              <Input
-                inputMode="numeric"
-                value={String(processing.defogQty)}
-                onChange={(event) =>
-                  patch({
-                    defogQty: Math.max(
-                      0,
-                      Math.floor(Number(event.target.value) || 0),
-                    ),
-                  })
-                }
-              />
-            </div>
+          <div className="grid max-w-sm gap-1.5">
+            <Label>Mod de control</Label>
+            <select
+              className={selectClass()}
+              value={processing.defogControl}
+              onChange={(event) =>
+                patch({
+                  defogControl: event.target
+                    .value as ProcessingConfig["defogControl"],
+                })
+              }
+            >
+              {DEFOG_CONTROLS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
       </section>
 
-      {/* Rame și fixare */}
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Rame și fixare</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Perimetru auto doar după regulă admin confirmată. Fixare cu
-            cantități explicite.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Rame și fixare</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label>Tip ramă</Label>
@@ -544,14 +470,8 @@ export function ProcessingSections({
         </fieldset>
       </section>
 
-      {/* Găuri și decupaje */}
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Găuri și decupaje</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Prețuri din catalog — lipsă tarif → INCOMPLETE.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Găuri și decupaje</h2>
         {processing.cutouts.map((cutout, index) => (
           <div
             key={`cut-${index}`}
@@ -673,14 +593,8 @@ export function ProcessingSections({
         </button>
       </section>
 
-      {/* Accesorii */}
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Accesorii</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Prețuri configurabile din catalog — nimic inventat.
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Accesorii</h2>
         <div className="grid gap-2">
           {processing.accessories.map((acc) => {
             const meta = PRODUCT_ACCESSORIES.find((item) => item.id === acc.id)!;
@@ -745,15 +659,8 @@ export function ProcessingSections({
         </div>
       </section>
 
-      {/* Branding și protecție */}
-      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Branding și protecție</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Folie anti-ciobire pe aria oglinzii doar dacă materialul are tarif
-            m².
-          </p>
-        </div>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold">Branding și protecție</h2>
         <div className="grid gap-2">
           {processing.branding.map((brand) => {
             const meta = BRANDING_OPTIONS.find((item) => item.id === brand.id)!;

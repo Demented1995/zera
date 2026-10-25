@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MATERIAL_CURRENCY } from "@/modules/materials/constants";
+import { MATERIAL_CURRENCY, materialUnitOptions } from "@/modules/materials/constants";
 import {
   createMaterialAction,
   updateMaterialAction,
@@ -176,16 +176,23 @@ function MaterialFormFields({
         </div>
         <div className="grid gap-2">
           <Label htmlFor="material-uom">Unitate de măsură</Label>
-          <Input
+          <select
             id="material-uom"
+            className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             value={form.unitOfMeasure}
-            onChange={(event) =>
-              updateField("unitOfMeasure", event.target.value)
-            }
-            placeholder="ex. m², metru, bucată"
+            onChange={(event) => updateField("unitOfMeasure", event.target.value)}
             required
             disabled={pending}
-          />
+          >
+            <option value="" disabled>
+              Alege unitatea
+            </option>
+            {materialUnitOptions(form.unitOfMeasure).map((unit) => (
+              <option key={unit} value={unit}>
+                {unit}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

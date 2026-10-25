@@ -1,3 +1,4 @@
+import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
 import { MATERIAL_SEED_KEYS } from "@/modules/pricing/engine";
 import {
   resolveLedLength,
@@ -63,7 +64,7 @@ export const LED_STRIP_TYPES: Array<{
   {
     id: "cob-10w",
     label: "COB 10W",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.ledCob10w,
   },
 ];
 
@@ -79,14 +80,14 @@ export const SWITCH_TYPES: Array<{
   materialSeedKey: string | null;
   note?: string;
 }> = [
-  { id: "mechanical", label: "Mecanic", materialSeedKey: null },
+  { id: "mechanical", label: "Mecanic", materialSeedKey: UNPRICED_SEED.switchMechanical },
   {
     id: "touch",
     label: "Touch",
     materialSeedKey: MATERIAL_SEED_KEYS.touch,
     note: "Include sablarea simbolului; nu se adaugă sablare separată.",
   },
-  { id: "motion", label: "Senzor mișcare", materialSeedKey: null },
+  { id: "motion", label: "Senzor mișcare", materialSeedKey: UNPRICED_SEED.switchMotion },
 ];
 
 export const ELECTRICAL_CONNECTIONS: Array<{
@@ -104,33 +105,33 @@ export const EXTRA_COMPONENTS: Array<{
   materialSeedKey: string | null;
   defaultQty: number;
 }> = [
-  { id: "mounting-profile", label: "Profil de montaj", materialSeedKey: null, defaultQty: 0 },
-  { id: "plastic-frame", label: "Ramă plastic", materialSeedKey: null, defaultQty: 0 },
-  { id: "abs", label: "ABS", materialSeedKey: null, defaultQty: 0 },
+  { id: "mounting-profile", label: "Profil de montaj", materialSeedKey: UNPRICED_SEED.mountingProfile, defaultQty: 0 },
+  { id: "plastic-frame", label: "Ramă plastic", materialSeedKey: UNPRICED_SEED.plasticFrame, defaultQty: 0 },
+  { id: "abs", label: "ABS", materialSeedKey: UNPRICED_SEED.abs, defaultQty: 0 },
   {
     id: "electric-block-cover",
     label: "Capac bloc electric",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.electricBlockCover,
     defaultQty: 0,
   },
   {
     id: "lighting-block-cover",
     label: "Capac bloc iluminare",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.lightingBlockCover,
     defaultQty: 0,
   },
-  { id: "connectors", label: "Conectori", materialSeedKey: null, defaultQty: 0 },
-  { id: "assembly", label: "Ansamblu", materialSeedKey: null, defaultQty: 0 },
+  { id: "connectors", label: "Conectori", materialSeedKey: UNPRICED_SEED.connectors, defaultQty: 0 },
+  { id: "assembly", label: "Ansamblu", materialSeedKey: UNPRICED_SEED.assembly, defaultQty: 0 },
   {
     id: "plexiglass-diffuser",
     label: "Difuzor plexiglas",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.plexiglassDiffuser,
     defaultQty: 0,
   },
   {
     id: "aluminium-diffusion-profile",
     label: "Profil aluminiu difuzie",
-    materialSeedKey: null,
+    materialSeedKey: UNPRICED_SEED.aluminiumDiffusionProfile,
     defaultQty: 0,
   },
 ];
@@ -212,6 +213,21 @@ export function getStripType(id: LedStripTypeId) {
 
 export function getSwitchType(id: SwitchTypeId) {
   return SWITCH_TYPES.find((item) => item.id === id)!;
+}
+
+/** Customer-facing diffuser choices. Position, strip type, and wattage stay on the model. */
+export const LIGHTING_DIFFUSER_IDS = [
+  "plexiglass-diffuser",
+  "aluminium-diffusion-profile",
+] as const;
+
+export function lightingDiffuserOn(lighting: LightingConfig): boolean {
+  return lighting.extraComponents.some(
+    (item) =>
+      (LIGHTING_DIFFUSER_IDS as readonly string[]).includes(item.id) &&
+      item.enabled &&
+      item.qty > 0,
+  );
 }
 
 export type LedSystemResolved = {

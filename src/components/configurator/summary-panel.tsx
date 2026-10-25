@@ -65,15 +65,9 @@ export function SummaryPanel({
     ].some((value) => value !== 0 || value === null);
 
   return (
-    <aside className="space-y-4 rounded-xl border border-border bg-card p-5 lg:sticky lg:top-20">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Sumar</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Rezumat financiar A–F (sinecost) + servicii separate. INCOMPLETE /
-            „Calcul incomplet” nu e preț final confirmat.
-          </p>
-        </div>
+    <aside className="space-y-3 rounded-xl border border-border bg-card p-3 lg:sticky lg:top-20">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-foreground">Sumar</h2>
         <StatusBadge status={status} pending={pending} />
       </div>
 
@@ -110,7 +104,7 @@ export function SummaryPanel({
         </dl>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Completați forma și dimensiunile pentru a vedea sumarul.
+          Se calculează sumarul…
         </p>
       )}
 

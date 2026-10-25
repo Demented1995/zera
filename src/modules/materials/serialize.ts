@@ -24,14 +24,14 @@ export function serializeCategory(
 }
 
 export function serializeMaterial(
-  material: Material & { category: MaterialCategory },
+  material: Material & { category: MaterialCategory | null },
 ): MaterialDTO {
   return {
     id: material.id,
     name: material.name,
     internalCode: material.internalCode,
     categoryId: material.categoryId,
-    categoryName: material.category.name,
+    categoryName: material.category?.name ?? null,
     unitPrice: material.unitPrice?.toString() ?? null,
     unitOfMeasure: material.unitOfMeasure,
     currency: material.currency,

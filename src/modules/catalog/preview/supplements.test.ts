@@ -72,7 +72,7 @@ describe("customer option supplements", () => {
     assert.equal(formatSupplementMdl(-10.5), "−10,50 mdl");
   });
 
-  it("prices an allowed switch from the engine and leaves an unpriced choice blank", () => {
+  it("prices a sensor and shows 0 for an unpriced switch", () => {
     const rules = defaultConfiguratorRules();
     rules.features.switchType = {
       mode: "EDITABLE",
@@ -116,7 +116,35 @@ describe("customer option supplements", () => {
     assert.ok(withTouch != null && base != null);
     assert.equal(touch.supplementMdl, Math.round((withTouch - base) * 100) / 100);
     assert.ok((touch.supplementMdl ?? 0) > 0);
-    assert.equal(mechanical.supplementMdl, null);
+    assert.equal(mechanical.supplementMdl, 0);
     assert.equal(findForbiddenCommercialKey(controls), null);
+  });
+
+  it("hides a zero supplement on LED color and standard glass", () => {
+    const rules = defaultConfiguratorRules();
+    rules.features.glassType = {
+      mode: "EDITABLE",
+      allowedValues: ["standard", "diamant"],
+    };
+    rules.features.lightTemp = {
+      mode: "EDITABLE",
+      allowedValues: ["3000", "4000", "6000"],
+    };
+    const state = modelDefault();
+    const controls = applyRetailSupplements({
+      controls: buildPreviewControls(rules, state),
+      selection: {},
+      modelDefault: state,
+      rules,
+      materials,
+      pricingRules,
+    });
+    const glass = controls.find((control) => control.id === "glassType");
+    const color = controls.find((control) => control.id === "light-temp");
+    assert.ok(glass && glass.kind === "select");
+    assert.ok(color && color.kind === "select");
+    assert.equal(glass.options.find((option) => option.id === "standard")?.supplementMdl, null);
+    assert.equal(glass.options.find((option) => option.id === "diamant")?.supplementMdl, 0);
+    assert.ok(color.options.every((option) => option.supplementMdl == null));
   });
 });

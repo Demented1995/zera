@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireStaffSession } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
-import { MATERIAL_CURRENCY } from "@/modules/materials/constants";
+import { MATERIAL_CURRENCY, MATERIAL_UNITS } from "@/modules/materials/constants";
 import { slugifyCategoryName } from "@/modules/materials/format";
 import { canManageMaterials } from "@/modules/materials/permissions";
 import {
@@ -299,6 +299,139 @@ export async function renameCategoryAction(
     }
     return { ok: false, message: "Categoria nu a putut fi actualizată." };
   }
+}
+
+export async function assignMaterialCategoryAction(
+  id: string,
+  categoryId: string,
+): Promise<ActionResult> {
+  const auth = await requireMaterialsAdmin();
+  if (auth.error || !auth.session) {
+    return { ok: false, message: auth.error ?? "Neautorizat" };
+  }
+
+  const material = await prisma.material.findUnique({ where: { id } });
+  if (!material) {
+    return { ok: false, message: "Materialul nu a fost găsit." };
+  }
+
+  const category = await prisma.materialCategory.findFirst({
+    where: { id: categoryId, isActive: true },
+  });
+  if (!category) {
+    return { ok: false, message: "Categoria selectată nu este validă." };
+  }
+
+  await prisma.material.update({
+    where: { id },
+    data: { categoryId },
+  });
+
+  revalidatePath("/admin/materiale");
+  return {
+    ok: true,
+    message: `„${material.name}” a fost mutat în ${category.name}.`,
+  };
+}
+
+export async function setMaterialPriceAction(
+  id: string,
+  rawPrice: string,
+): Promise<ActionResult> {
+  const auth = await requireMaterialsAdmin();
+  if (auth.error || !auth.session) {
+    return { ok: false, message: auth.error ?? "Neautorizat" };
+  }
+
+  const normalized = rawPrice.trim().replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    return { ok: false, message: "Introduceți un preț cu cel mult 2 zecimale." };
+  }
+
+  const unitPrice = new Prisma.Decimal(normalized);
+  const material = await prisma.material.findUnique({ where: { id } });
+  if (!material) {
+    return { ok: false, message: "Materialul nu a fost găsit." };
+  }
+  if (pricesEqual(material.unitPrice, unitPrice)) {
+    return { ok: true, message: "Prețul este neschimbat." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.material.update({
+      where: { id },
+      data: { unitPrice, currency: MATERIAL_CURRENCY },
+    });
+    await tx.materialPriceHistory.create({
+      data: {
+        materialId: id,
+        previousPrice: material.unitPrice,
+        newPrice: unitPrice,
+        changedById: auth.session!.user.id,
+      },
+    });
+  });
+
+  revalidatePath("/admin/materiale");
+  return {
+    ok: true,
+    message: `Prețul pentru „${material.name}” este ${unitPrice.toFixed(2)} MDL.`,
+  };
+}
+
+export async function setMaterialUnitAction(
+  id: string,
+  unitOfMeasure: string,
+): Promise<ActionResult> {
+  const auth = await requireMaterialsAdmin();
+  if (auth.error || !auth.session) {
+    return { ok: false, message: auth.error ?? "Neautorizat" };
+  }
+
+  const unit = unitOfMeasure.trim();
+  if (!MATERIAL_UNITS.includes(unit as (typeof MATERIAL_UNITS)[number])) {
+    return { ok: false, message: "Unitatea de măsură nu este validă." };
+  }
+
+  const material = await prisma.material.findUnique({ where: { id } });
+  if (!material) {
+    return { ok: false, message: "Materialul nu a fost găsit." };
+  }
+
+  await prisma.material.update({
+    where: { id },
+    data: { unitOfMeasure: unit },
+  });
+
+  revalidatePath("/admin/materiale");
+  return { ok: true, message: `Unitatea pentru „${material.name}” este ${unit}.` };
+}
+
+export async function deleteMaterialAction(id: string): Promise<ActionResult> {
+  const auth = await requireMaterialsAdmin();
+  if (auth.error || !auth.session) {
+    return { ok: false, message: auth.error ?? "Neautorizat" };
+  }
+
+  const material = await prisma.material.findUnique({ where: { id } });
+  if (!material) {
+    return { ok: false, message: "Materialul nu a fost găsit." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (material.seedKey) {
+      await tx.dismissedMaterialSeed.upsert({
+        where: { seedKey: material.seedKey },
+        update: {},
+        create: { seedKey: material.seedKey },
+      });
+    }
+    await tx.materialPriceHistory.deleteMany({ where: { materialId: id } });
+    await tx.material.delete({ where: { id } });
+  });
+
+  revalidatePath("/admin/materiale");
+  return { ok: true, message: `„${material.name}” a fost șters.` };
 }
 
 export async function setCategoryActiveAction(

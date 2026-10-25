@@ -9,7 +9,6 @@ import {
   BRANDING_OPTIONS,
   CUTOUT_TYPES,
   DEFOG_CONTROLS,
-  DEFOG_SIZES,
   FACET_SHAPES,
   FACET_WIDTHS,
   FRAME_TYPES,
@@ -58,15 +57,11 @@ export function optionCatalogForFeature(
       }));
     case "defog":
       return [
-        ...DEFOG_SIZES.map((item) => ({
-          id: `size:${item.id}`,
-          label: `Dimensiune ${item.label}`,
-        })),
+        { id: "enabled", label: "Permite activare dezaburire" },
         ...DEFOG_CONTROLS.map((item) => ({
           id: `control:${item.id}`,
-          label: `Control ${item.label}`,
+          label: item.label,
         })),
-        { id: "enabled", label: "Permite activare dezaburire" },
       ];
     case "frames":
       return FRAME_TYPES.map((item) => ({ id: item.id, label: item.label }));

@@ -10,6 +10,7 @@ import {
 } from "@/modules/catalog/permissions";
 import {
   defaultConfiguratorRules,
+  newModelConfiguratorRules,
   resolveConfiguratorRules,
   validateCustomerConfig,
   validateRulesConsistency,
@@ -78,6 +79,37 @@ async function requireCategoryId(): Promise<string> {
 }
 
 describe("Stage 6.2 configurator rules", () => {
+  it("a new model lets the customer set size, glass, and LED color", () => {
+    const rules = newModelConfiguratorRules();
+    assert.equal(rules.dimensions.width.mode, "EDITABLE");
+    assert.equal(rules.dimensions.width.minMm, 300);
+    assert.equal(rules.dimensions.width.maxMm, 2900);
+    assert.equal(rules.dimensions.height.mode, "EDITABLE");
+    assert.deepEqual(rules.features.glassType.allowedValues, [
+      "standard",
+      "diamant",
+      "bronz",
+      "gri",
+      "antichizata",
+    ]);
+    assert.deepEqual(rules.features.lightTemp.allowedValues, [
+      "3000",
+      "4000",
+      "6000",
+    ]);
+    assert.equal(rules.features.shape.mode, "FIXED");
+
+    const result = validateCustomerConfig({
+      modelDefault: baseState(),
+      rules,
+      request: { widthMm: 700, heightMm: 900, glassTypeId: "diamant" },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.config.widthMm, 700);
+    assert.equal(result.config.heightMm, 900);
+    assert.equal(result.config.glassTypeId, "diamant");
+  });
+
   it("model without rules treats all features as FIXED", () => {
     const rules = resolveConfiguratorRules(null);
     assert.equal(rules.features.shape.mode, "FIXED");

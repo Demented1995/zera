@@ -51,10 +51,14 @@ export type PreviewControl =
         | "frontLedEnabled"
         | "backLedEnabled"
         | "defogEnabled"
+        | "diffuserEnabled"
+        | "deliveryEnabled"
+        | "installEnabled"
         | "facetEnabled"
         | "engravingEnabled"
         | "antiShatterFilmEnabled";
       value: boolean;
+      supplementMdl?: number | null;
     })
   | (ControlBase & {
       kind: "dimension";
@@ -168,6 +172,9 @@ export type PreviewPatch =
         | "frontLedEnabled"
         | "backLedEnabled"
         | "defogEnabled"
+        | "diffuserEnabled"
+        | "deliveryEnabled"
+        | "installEnabled"
         | "facetEnabled"
         | "engravingEnabled"
         | "antiShatterFilmEnabled";

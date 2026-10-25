@@ -10,11 +10,10 @@ import { CONFIGURATOR_FEATURE_KEYS } from "@/modules/catalog/rules/types";
 import { defaultCommercialConfig } from "@/modules/configurator/commercial";
 import { getGlassTypeById } from "@/modules/configurator/glass-types";
 import {
-  LED_POSITIONINGS,
-  LED_STRIP_TYPES,
   LED_TEMPERATURES,
   SWITCH_TYPES,
   defaultLightingConfig,
+  lightingDiffuserOn,
   lightingUsesBack,
   lightingUsesFront,
 } from "@/modules/configurator/lighting";
@@ -22,7 +21,6 @@ import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import {
   CUTOUT_TYPES,
   DEFOG_CONTROLS,
-  DEFOG_SIZES,
   FACET_SHAPES,
   FRAME_TYPES,
   PRODUCT_ACCESSORIES,
@@ -45,9 +43,10 @@ const SECTION_TITLES: Record<string, string> = {
   dimensions: "Dimensiuni și formă",
   glass: "Sticlă",
   lighting: "Iluminare",
-  comfort: "Întrerupător și dezaburire",
+  comfort: "Opțiuni",
   processing: "Prelucrări",
   extras: "Ramă și accesorii",
+  services: "Servicii",
 };
 
 const COMPATIBILITY_LABEL: Record<string, string> = {
@@ -265,7 +264,7 @@ export function buildPreviewControls(
         label: "Întrerupător",
         valueLabel: current
           ? labelOf(SWITCH_TYPES, current.type)
-          : "Fără întrerupător",
+          : "Fără",
       });
     } else {
       controls.push({
@@ -275,8 +274,21 @@ export function buildPreviewControls(
         mode: "EDITABLE",
         label: "Întrerupător",
         field: "switchType",
-        value: current?.type ?? "",
-        options: choicesFor("switchType", allowedValues(rules, "switchType")),
+        value: current?.type ?? "none",
+        options: [
+          { id: "none", label: "Fără" },
+          ...choicesFor("switchType", allowedValues(rules, "switchType")).map(
+            (option) => ({
+              ...option,
+              label:
+                option.id === "motion"
+                  ? "Detector de mișcare"
+                  : option.id === "touch"
+                    ? "Senzor"
+                    : option.label,
+            }),
+          ),
+        ],
         numeric: false,
       });
     }
@@ -285,6 +297,7 @@ export function buildPreviewControls(
   pushDefogControls(controls, rules, config);
   pushProcessingControls(controls, rules, config);
   pushFrameAndAccessoryControls(controls, rules, config);
+  pushCustomerServiceControls(controls, config);
 
   return controls;
 }
@@ -298,32 +311,125 @@ function pushLightingControls(
 ) {
   const frontMode = featureMode(rules, "frontLed");
   const backMode = featureMode(rules, "backLed");
+  const ledOn = frontOn || backOn;
 
-  if (
-    frontMode === "FIXED" &&
-    backMode === "FIXED" &&
-    !frontOn &&
-    !backOn
-  ) {
+  if (backMode === "EDITABLE") {
+    pushLedToggle(
+      controls,
+      "backLed",
+      "Iluminare LED spate",
+      "backLedEnabled",
+      backMode,
+      backOn,
+    );
+  } else if (backMode !== "HIDDEN" && backOn) {
     controls.push({
-      id: "lighting-off",
+      id: "backLed",
       section: "lighting",
       kind: "text",
       mode: "FIXED",
-      label: "Iluminare LED",
-      valueLabel: "Fără iluminare",
+      label: "Iluminare LED spate",
+      valueLabel: "Da",
     });
-  } else {
-    pushLedToggle(controls, "frontLed", "LED față", "frontLedEnabled", frontMode, frontOn);
-    pushLedToggle(controls, "backLed", "LED spate", "backLedEnabled", backMode, backOn);
+  } else if (!ledOn && frontMode !== "EDITABLE") {
+    if (frontMode !== "HIDDEN" || backMode !== "HIDDEN") {
+      controls.push({
+        id: "lighting-off",
+        section: "lighting",
+        kind: "text",
+        mode: "FIXED",
+        label: "Iluminare LED",
+        valueLabel: "Fără iluminare",
+      });
+    }
   }
 
-  if (frontOn) {
-    pushLedDetails(controls, rules, "față", "front", config.lighting.front);
+  if (ledOn) {
+    pushCustomerLedColor(controls, rules, config, frontOn, backOn);
   }
   if (backOn) {
-    pushLedDetails(controls, rules, "spate", "back", config.lighting.back);
+    pushDiffuserControl(controls, config);
   }
+}
+
+function pushCustomerLedColor(
+  controls: PreviewControl[],
+  rules: ConfiguratorRulesV1,
+  config: ConfiguratorState,
+  frontOn: boolean,
+  backOn: boolean,
+) {
+  const tempMode = featureMode(rules, "lightTemp");
+  if (tempMode === "HIDDEN") {
+    return;
+  }
+  const system = frontOn ? config.lighting.front : config.lighting.back;
+  const field = frontOn ? "frontLightTempK" : "backLightTempK";
+  const label = labelOf(
+    LED_TEMPERATURES.map((item) => ({ id: String(item.id), label: item.label })),
+    String(system.temperatureK),
+  );
+  if (tempMode === "FIXED") {
+    controls.push({
+      id: "light-temp",
+      section: "lighting",
+      kind: "text",
+      mode: "FIXED",
+      label: "Culoare LED",
+      valueLabel: label,
+    });
+    return;
+  }
+  controls.push({
+    id: "light-temp",
+    section: "lighting",
+    kind: "select",
+    mode: "EDITABLE",
+    label: "Culoare LED",
+    field,
+    value: String(system.temperatureK),
+    options: choicesFor("lightTemp", allowedValues(rules, "lightTemp")),
+    numeric: true,
+  });
+}
+
+function pushDiffuserControl(
+  controls: PreviewControl[],
+  config: ConfiguratorState,
+) {
+  controls.push({
+    id: "diffuser",
+    section: "lighting",
+    kind: "toggle",
+    mode: "EDITABLE",
+    label: "Difuzor de iluminare",
+    field: "diffuserEnabled",
+    value: lightingDiffuserOn(config.lighting),
+  });
+}
+
+function pushCustomerServiceControls(
+  controls: PreviewControl[],
+  config: ConfiguratorState,
+) {
+  controls.push({
+    id: "delivery",
+    section: "services",
+    kind: "toggle",
+    mode: "EDITABLE",
+    label: "Livrare",
+    field: "deliveryEnabled",
+    value: config.commercial.deliveryType !== "pickup",
+  });
+  controls.push({
+    id: "install",
+    section: "services",
+    kind: "toggle",
+    mode: "EDITABLE",
+    label: "Montare",
+    field: "installEnabled",
+    value: config.commercial.installType !== "none",
+  });
 }
 
 function pushLedToggle(
@@ -361,93 +467,6 @@ function pushLedToggle(
   }
 }
 
-function pushLedDetails(
-  controls: PreviewControl[],
-  rules: ConfiguratorRulesV1,
-  sideLabel: string,
-  side: "front" | "back",
-  system: ConfiguratorState["lighting"]["front"],
-) {
-  const positionMode = featureMode(rules, "ledPosition");
-  const stripMode = featureMode(rules, "ledStripType");
-  const tempMode = featureMode(rules, "lightTemp");
-  const positionField = side === "front" ? "frontLedPositioning" : "backLedPositioning";
-  const stripField = side === "front" ? "frontLedStripTypeId" : "backLedStripTypeId";
-  const tempField = side === "front" ? "frontLightTempK" : "backLightTempK";
-
-  if (positionMode === "FIXED") {
-    controls.push({
-      id: `${side}-position`,
-      section: "lighting",
-      kind: "text",
-      mode: "FIXED",
-      label: `Poziție LED ${sideLabel}`,
-      valueLabel: labelOf(LED_POSITIONINGS, system.positioning),
-    });
-  } else if (positionMode === "EDITABLE") {
-    controls.push({
-      id: `${side}-position`,
-      section: "lighting",
-      kind: "select",
-      mode: "EDITABLE",
-      label: `Poziție LED ${sideLabel}`,
-      field: positionField,
-      value: system.positioning,
-      options: choicesFor("ledPosition", allowedValues(rules, "ledPosition")),
-      numeric: false,
-    });
-  }
-
-  if (stripMode === "FIXED") {
-    controls.push({
-      id: `${side}-strip`,
-      section: "lighting",
-      kind: "text",
-      mode: "FIXED",
-      label: `Bandă LED ${sideLabel}`,
-      valueLabel: labelOf(LED_STRIP_TYPES, system.stripTypeId),
-    });
-  } else if (stripMode === "EDITABLE") {
-    controls.push({
-      id: `${side}-strip`,
-      section: "lighting",
-      kind: "select",
-      mode: "EDITABLE",
-      label: `Bandă LED ${sideLabel}`,
-      field: stripField,
-      value: system.stripTypeId,
-      options: choicesFor("ledStripType", allowedValues(rules, "ledStripType")),
-      numeric: false,
-    });
-  }
-
-  if (tempMode === "FIXED") {
-    controls.push({
-      id: `${side}-temp`,
-      section: "lighting",
-      kind: "text",
-      mode: "FIXED",
-      label: `Temperatură LED ${sideLabel}`,
-      valueLabel: labelOf(
-        LED_TEMPERATURES.map((item) => ({ id: String(item.id), label: item.label })),
-        String(system.temperatureK),
-      ),
-    });
-  } else if (tempMode === "EDITABLE") {
-    controls.push({
-      id: `${side}-temp`,
-      section: "lighting",
-      kind: "select",
-      mode: "EDITABLE",
-      label: `Temperatură LED ${sideLabel}`,
-      field: tempField,
-      value: String(system.temperatureK),
-      options: choicesFor("lightTemp", allowedValues(rules, "lightTemp")),
-      numeric: true,
-    });
-  }
-}
-
 function pushDefogControls(
   controls: PreviewControl[],
   rules: ConfiguratorRulesV1,
@@ -458,16 +477,13 @@ function pushDefogControls(
     return;
   }
   if (mode === "FIXED") {
-    if (!config.processing.defogEnabled) {
-      return;
-    }
     controls.push({
       id: "defog",
       section: "comfort",
       kind: "text",
       mode: "FIXED",
-      label: "Dezaburire",
-      valueLabel: `${labelOf(DEFOG_SIZES, config.processing.defogSize)} · ${labelOf(DEFOG_CONTROLS, config.processing.defogControl)}`,
+      label: "Încălzire / dezaburire",
+      valueLabel: config.processing.defogEnabled ? "Da" : "Nu",
     });
     return;
   }
@@ -477,47 +493,21 @@ function pushDefogControls(
     section: "comfort",
     kind: "toggle",
     mode: "EDITABLE",
-    label: "Dezaburire",
+    label: "Încălzire / dezaburire",
     field: "defogEnabled",
     value: config.processing.defogEnabled,
   });
-  if (!config.processing.defogEnabled) {
-    return;
-  }
-  const allowed = allowedValues(rules, "defog");
-  const sizes = choicesFor("defog", allowed).filter((item) =>
-    item.id.startsWith("size:"),
-  );
-  const controlsChoices = choicesFor("defog", allowed).filter((item) =>
-    item.id.startsWith("control:"),
-  );
-  if (sizes.length > 0) {
-    controls.push({
-      id: "defog-size",
-      section: "comfort",
-      kind: "select",
-      mode: "EDITABLE",
-      label: "Dimensiune dezaburire",
-      field: "defogSize",
-      value: config.processing.defogSize,
-      options: sizes.map((item) => ({
-        id: item.id.slice("size:".length),
-        label: item.label,
-      })),
-      numeric: false,
-    });
-  }
-  if (controlsChoices.length > 0) {
+  if (config.processing.defogEnabled) {
     controls.push({
       id: "defog-control",
       section: "comfort",
       kind: "select",
       mode: "EDITABLE",
-      label: "Control dezaburire",
+      label: "Mod de control",
       field: "defogControl",
       value: config.processing.defogControl,
-      options: controlsChoices.map((item) => ({
-        id: item.id.slice("control:".length),
+      options: DEFOG_CONTROLS.map((item) => ({
+        id: item.id,
         label: item.label,
       })),
       numeric: false,
@@ -844,15 +834,28 @@ export function selectionFromStates(
   const ledOn = front || back;
   const currentSwitch = config.lighting.switches[0];
   const defaultSwitch = modelDefault.lighting.switches[0];
-  if (
-    ledOn &&
-    (currentSwitch?.type !== defaultSwitch?.type ||
-      currentSwitch?.qty !== defaultSwitch?.qty)
-  ) {
+  const currentSwitchId = currentSwitch?.type ?? "none";
+  const defaultSwitchId = defaultSwitch?.type ?? "none";
+  if (ledOn && currentSwitchId !== defaultSwitchId) {
+    request.switchType = currentSwitchId;
     if (currentSwitch) {
-      request.switchType = currentSwitch.type;
       request.switchQty = currentSwitch.qty;
     }
+  }
+
+  if (lightingDiffuserOn(config.lighting) !== lightingDiffuserOn(modelDefault.lighting)) {
+    request.diffuserEnabled = lightingDiffuserOn(config.lighting);
+  }
+
+  const deliveryOn = config.commercial.deliveryType !== "pickup";
+  const deliveryDefault = modelDefault.commercial.deliveryType !== "pickup";
+  if (deliveryOn !== deliveryDefault) {
+    request.deliveryEnabled = deliveryOn;
+  }
+  const installOn = config.commercial.installType !== "none";
+  const installDefault = modelDefault.commercial.installType !== "none";
+  if (installOn !== installDefault) {
+    request.installEnabled = installOn;
   }
 
   if (config.processing.defogEnabled !== modelDefault.processing.defogEnabled) {
@@ -946,7 +949,7 @@ function customerPrice(source: PriceSource): CustomerPreviewPayload["price"] {
       available: false,
       retailPrice: null,
       currency: "MDL",
-      message: "Preț indisponibil momentan",
+      message: "Prețul nu poate fi calculat.",
     };
   }
   return {
@@ -984,6 +987,15 @@ export function assembleMirrorPreview(input: {
 } {
   const config = clearInactiveComponents(input.validated.config);
   const controls = buildPreviewControls(input.rules, config);
+  const unpriced = input.validated.rejected.find(
+    (issue) => issue.code === "unpriced_option",
+  );
+  const price = customerPrice(input.priceSource);
+  if (unpriced) {
+    price.available = false;
+    price.retailPrice = null;
+    price.message = unpriced.message;
+  }
   const customer: CustomerPreviewPayload = {
     model: {
       id: input.model.id,
@@ -998,8 +1010,10 @@ export function assembleMirrorPreview(input: {
     sections: sectionsFrom(controls),
     controls,
     selection: selectionFromStates(input.modelDefault, config),
-    price: customerPrice(input.priceSource),
-    notices: input.validated.rejected.map((issue) => issue.message),
+    price,
+    notices: input.validated.rejected
+      .filter((issue) => issue.code !== "unpriced_option")
+      .map((issue) => issue.message),
   };
 
   const diagnostic: AdminPreviewDiagnostic | null = input.includeDiagnostic

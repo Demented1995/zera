@@ -10,12 +10,26 @@ import type {
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import {
   defaultLightingConfig,
+  LIGHTING_DIFFUSER_IDS,
   type LightingType,
 } from "@/modules/configurator/lighting";
-import { defaultProcessingConfig } from "@/modules/configurator/processing";
+import {
+  DEFOG_CONTROLS,
+  defaultProcessingConfig,
+} from "@/modules/configurator/processing";
 import {
   defaultCommercialConfig,
+  type DeliveryTypeId,
+  type InstallTypeId,
 } from "@/modules/configurator/commercial";
+import {
+  DELIVERY_CATALOG_SEED,
+  INSTALL_CATALOG_SEED,
+} from "@/modules/materials/unpriced-catalog";
+import {
+  UNCONFIRMED_UOM,
+  type CatalogMaterial,
+} from "@/modules/pricing/engine";
 
 function cloneState(state: ConfiguratorState): ConfiguratorState {
   return structuredClone(state);
@@ -166,7 +180,9 @@ function checkCompatibility(
         request.backLedPositioning != null ||
         request.frontLedStripTypeId != null ||
         request.backLedStripTypeId != null ||
-        request.switchType != null
+        request.switchType != null &&
+        request.switchType !== "none" &&
+        request.switchType !== ""
       ) {
         issues.push({
           code: "incompatible",
@@ -231,10 +247,208 @@ function checkCompatibility(
  * Starts from model defaults → applies only allowed changes → validates → returns config.
  * Never trusts React control hiding alone.
  */
+function serviceIsPriced(
+  type: string,
+  inactive: string,
+  tariff: number | null,
+): boolean {
+  return type !== inactive && tariff != null && Number.isFinite(tariff);
+}
+
+function catalogUnitPrice(
+  materials: CatalogMaterial[] | undefined,
+  seedKey: string,
+): number | null {
+  if (!materials) {
+    return null;
+  }
+  const material = materials.find(
+    (item) => item.seedKey === seedKey && item.isActive,
+  );
+  if (
+    !material ||
+    material.unitPrice == null ||
+    !Number.isFinite(material.unitPrice) ||
+    material.unitOfMeasure === UNCONFIRMED_UOM
+  ) {
+    return null;
+  }
+  return material.unitPrice;
+}
+
+function catalogDelivery(
+  currentType: string,
+  materials: CatalogMaterial[] | undefined,
+): { type: DeliveryTypeId; tariff: number } | null {
+  const preferred =
+    currentType === "chisinau" || currentType === "other-moldova"
+      ? currentType
+      : "chisinau";
+  const order: Array<"chisinau" | "other-moldova"> = [
+    preferred,
+    "chisinau",
+    "other-moldova",
+  ];
+  const seen = new Set<string>();
+  for (const type of order) {
+    if (seen.has(type)) {
+      continue;
+    }
+    seen.add(type);
+    const price = catalogUnitPrice(materials, DELIVERY_CATALOG_SEED[type]);
+    if (price != null) {
+      return { type, tariff: price };
+    }
+  }
+  return null;
+}
+
+function catalogInstall(
+  currentType: string,
+  materials: CatalogMaterial[] | undefined,
+): { type: InstallTypeId; tariff: number } | null {
+  const known = [
+    "mirror",
+    "mirror-frame",
+    "mirror-accessories",
+    "custom",
+  ] as const;
+  const preferred = known.find((type) => type === currentType) ?? "mirror";
+  const order = [preferred, ...known];
+  const seen = new Set<string>();
+  for (const type of order) {
+    if (seen.has(type)) {
+      continue;
+    }
+    seen.add(type);
+    const price = catalogUnitPrice(materials, INSTALL_CATALOG_SEED[type]);
+    if (price != null) {
+      return { type, tariff: price };
+    }
+  }
+  return null;
+}
+
+function applyDiffuserChoice(
+  modelDefault: ConfiguratorState,
+  config: ConfiguratorState,
+  request: CustomerConfigRequest,
+  applied: string[],
+): void {
+  if (request.diffuserEnabled === undefined) {
+    return;
+  }
+  const ids = new Set<string>(LIGHTING_DIFFUSER_IDS);
+  if (!request.diffuserEnabled) {
+    config.lighting.extraComponents = config.lighting.extraComponents.map((item) =>
+      ids.has(item.id) ? { ...item, enabled: false, qty: 0 } : item,
+    );
+    applied.push("diffuser");
+    return;
+  }
+
+  const offered = modelDefault.lighting.extraComponents.filter(
+    (item) => ids.has(item.id) && item.enabled && item.qty > 0,
+  );
+  config.lighting.extraComponents = config.lighting.extraComponents.map((item) => {
+    if (!ids.has(item.id)) {
+      return item;
+    }
+    const fromModel = offered.find((entry) => entry.id === item.id);
+    if (fromModel) {
+      return { ...item, enabled: true, qty: fromModel.qty };
+    }
+    if (offered.length === 0 && item.id === "plexiglass-diffuser") {
+      return { ...item, enabled: true, qty: 1, side: "shared" };
+    }
+    return { ...item, enabled: false, qty: 0 };
+  });
+  applied.push("diffuser");
+}
+
+function applyServiceChoice(
+  modelDefault: ConfiguratorState,
+  config: ConfiguratorState,
+  request: CustomerConfigRequest,
+  issues: ValidationIssue[],
+  applied: string[],
+  materials?: CatalogMaterial[],
+  customerZerosUnset?: boolean,
+): void {
+  const delivery = modelDefault.commercial;
+  if (request.deliveryEnabled === false) {
+    config.commercial.deliveryType = "pickup";
+    applied.push("delivery");
+  } else if (request.deliveryEnabled === true) {
+    if (
+      serviceIsPriced(delivery.deliveryType, "pickup", delivery.deliveryTariff)
+    ) {
+      config.commercial.deliveryType = delivery.deliveryType;
+      config.commercial.deliveryTariff = delivery.deliveryTariff;
+      config.commercial.deliveryLocality = delivery.deliveryLocality;
+      config.commercial.deliveryDistanceKm = delivery.deliveryDistanceKm;
+      applied.push("delivery");
+    } else {
+      const fromCatalog = catalogDelivery(delivery.deliveryType, materials);
+      if (fromCatalog) {
+        config.commercial.deliveryType = fromCatalog.type;
+        config.commercial.deliveryTariff = fromCatalog.tariff;
+        applied.push("delivery");
+      } else if (customerZerosUnset) {
+        config.commercial.deliveryType =
+          delivery.deliveryType !== "pickup" ? delivery.deliveryType : "chisinau";
+        config.commercial.deliveryTariff = 0;
+        applied.push("delivery");
+      } else {
+        issues.push({
+          code: "unpriced_option",
+          feature: "price",
+          message: "Livrarea nu are un tarif configurat. Prețul nu poate fi calculat.",
+        });
+      }
+    }
+  }
+
+  const install = modelDefault.commercial;
+  if (request.installEnabled === false) {
+    config.commercial.installType = "none";
+    applied.push("install");
+  } else if (request.installEnabled === true) {
+    if (serviceIsPriced(install.installType, "none", install.installTariff)) {
+      config.commercial.installType = install.installType;
+      config.commercial.installTariff = install.installTariff;
+      config.commercial.installQty = install.installQty;
+      applied.push("install");
+    } else {
+      const fromCatalog = catalogInstall(install.installType, materials);
+      if (fromCatalog) {
+        config.commercial.installType = fromCatalog.type;
+        config.commercial.installTariff = fromCatalog.tariff;
+        applied.push("install");
+      } else if (customerZerosUnset) {
+        config.commercial.installType =
+          install.installType !== "none" ? install.installType : "mirror";
+        config.commercial.installTariff = 0;
+        config.commercial.installQty = install.installQty > 0 ? install.installQty : 1;
+        applied.push("install");
+      } else {
+        issues.push({
+          code: "unpriced_option",
+          feature: "price",
+          message: "Montarea nu are un tarif configurat. Prețul nu poate fi calculat.",
+        });
+      }
+    }
+  }
+}
+
 export function validateCustomerConfig(input: {
   modelDefault: ConfiguratorState;
   rules?: unknown | null;
   request: CustomerConfigRequest;
+  materials?: CatalogMaterial[];
+  /** Public site: an option without a tariff adds 0 and keeps the base price. */
+  customerZerosUnset?: boolean;
 }): ValidateCustomerConfigResult {
   const rules = resolveConfiguratorRules(input.rules);
   const config = cloneState(input.modelDefault);
@@ -450,6 +664,12 @@ export function validateCustomerConfig(input: {
       ) {
         config.lighting.front.temperatureK =
           request.frontLightTempK as typeof config.lighting.front.temperatureK;
+        if (
+          lightingHasBack(config.lighting.lightingType) &&
+          request.backLightTempK === undefined
+        ) {
+          config.lighting.back.temperatureK = config.lighting.front.temperatureK;
+        }
         applied.push("lightTemp:front");
       }
     }
@@ -467,6 +687,12 @@ export function validateCustomerConfig(input: {
       ) {
         config.lighting.back.temperatureK =
           request.backLightTempK as typeof config.lighting.back.temperatureK;
+        if (
+          lightingHasFront(config.lighting.lightingType) &&
+          request.frontLightTempK === undefined
+        ) {
+          config.lighting.front.temperatureK = config.lighting.back.temperatureK;
+        }
         applied.push("lightTemp:back");
       }
     }
@@ -475,7 +701,10 @@ export function validateCustomerConfig(input: {
   // Switch
   if (request.switchType !== undefined) {
     if (!rejectFixedOrHidden(rules, "switchType", issues, "întrerupător")) {
-      if (
+      if (request.switchType === "none" || request.switchType === "") {
+        config.lighting.switches = [];
+        applied.push("switchType");
+      } else if (
         assertAllowed(
           rules,
           "switchType",
@@ -496,6 +725,23 @@ export function validateCustomerConfig(input: {
       }
     }
   }
+
+  applyDiffuserChoice(input.modelDefault, config, request, applied);
+  if (config.lighting.lightingType === "front") {
+    const diffuserIds = new Set<string>(LIGHTING_DIFFUSER_IDS);
+    config.lighting.extraComponents = config.lighting.extraComponents.map((item) =>
+      diffuserIds.has(item.id) ? { ...item, enabled: false, qty: 0 } : item,
+    );
+  }
+  applyServiceChoice(
+    input.modelDefault,
+    config,
+    request,
+    issues,
+    applied,
+    input.materials,
+    input.customerZerosUnset,
+  );
 
   // Defog
   if (request.defogEnabled !== undefined) {
@@ -532,15 +778,16 @@ export function validateCustomerConfig(input: {
   }
   if (request.defogControl !== undefined) {
     if (!rejectFixedOrHidden(rules, "defog", issues, "dezaburire")) {
-      if (
-        assertAllowed(
-          rules,
-          "defog",
-          `control:${request.defogControl}`,
-          issues,
-          "dezaburire",
-        )
-      ) {
+      const allowed = DEFOG_CONTROLS.some(
+        (item) => item.id === request.defogControl,
+      );
+      if (!allowed) {
+        issues.push({
+          code: "disallowed_option",
+          feature: "defog",
+          message: `Valoarea „${request.defogControl}” nu este permisă pentru dezaburire.`,
+        });
+      } else {
         config.processing.defogControl =
           request.defogControl as typeof config.processing.defogControl;
         applied.push("defogControl");

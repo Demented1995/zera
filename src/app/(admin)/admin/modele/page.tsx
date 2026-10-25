@@ -190,6 +190,7 @@ export default async function ModelePage({ searchParams }: PageProps) {
                   <TableCell>
                     <ModelRowActions
                       id={row.id}
+                      name={row.name}
                       status={row.status}
                       canManage={canManage}
                     />

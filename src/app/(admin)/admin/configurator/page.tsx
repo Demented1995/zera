@@ -44,11 +44,8 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Configurator profesional"
-        description="Configurare oglinzi, salvare, oferte. Modelele comerciale se gestionează separat în Modele de oglinzi."
-      />
+    <div className="space-y-4">
+      <PageHeader title="Configurator profesional" />
       <ConfiguratorWorkspace
         canEditTariffs={isAdmin}
         initialConfigId={initialConfigId}
