@@ -125,6 +125,8 @@ export type CalculationInput = {
   widthMm: number;
   heightMm: number;
   shape: GlassShapeKind;
+  /** Configurator shape id, when known. Used for the round outline. */
+  shapeId?: string;
   /**
    * When set, glass is priced from this catalog material instead of the
    * shape default (rectangle / special). Missing price stays incomplete.

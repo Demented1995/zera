@@ -368,6 +368,7 @@ export function ConfiguratorWorkspace({
           widthMm={parsed.widthMm}
           heightMm={parsed.heightMm}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
+          shapeId={selectedShape?.id}
           onChange={(lighting) => update("lighting", lighting)}
         />
 

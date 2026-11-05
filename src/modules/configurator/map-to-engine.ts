@@ -152,6 +152,7 @@ export function buildCalculationInput(options: {
   const lightingBuilt = buildLightingDetailedComponents({
     lighting: state.lighting,
     shapeIsRectangular,
+    shapeId: shape.id,
     widthMm: state.widthMm,
     heightMm: state.heightMm,
   });
@@ -172,6 +173,7 @@ export function buildCalculationInput(options: {
     widthMm: state.widthMm,
     heightMm: state.heightMm,
     shape: shape.engineShape,
+    shapeId: shape.id,
     curvedEdges,
     explicitCurvedEdgeAddsMm,
     // Aggregated fields stay at 0 — LED/switches/transformers come via detailedComponents.
@@ -288,6 +290,7 @@ export function quoteConfigurator(options: {
   const lightingBuilt = buildLightingDetailedComponents({
     lighting,
     shapeIsRectangular,
+    shapeId: shape.id,
     widthMm: state.widthMm,
     heightMm: state.heightMm,
   });

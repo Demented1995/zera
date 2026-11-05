@@ -123,3 +123,16 @@ export function selectedCartLines(controls: PreviewControl[]): string[] {
 
   return lines;
 }
+
+/** Product technical specs: the same chosen options, split into label and value. */
+export function selectedOptionSpecs(
+  controls: PreviewControl[],
+): Array<{ label: string; value: string }> {
+  return selectedCartLines(controls).map((line) => {
+    const split = line.indexOf(": ");
+    if (split === -1) {
+      return { label: line, value: "" };
+    }
+    return { label: line.slice(0, split), value: line.slice(split + 2) };
+  });
+}

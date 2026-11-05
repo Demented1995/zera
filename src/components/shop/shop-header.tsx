@@ -19,9 +19,6 @@ export function ShopHeader() {
           <Link href="/cos" className="underline-offset-4 hover:underline">
             Coș{cart.count > 0 ? ` (${cart.count})` : ""}
           </Link>
-          <Link href="/admin" className="text-muted-foreground underline-offset-4 hover:underline">
-            Administrare
-          </Link>
         </nav>
       </div>
     </header>

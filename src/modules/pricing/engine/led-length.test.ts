@@ -45,6 +45,24 @@ describe("rectangular LED length formulas (600×1000)", () => {
   });
 });
 
+describe("round LED length", () => {
+  it("uses diameter × 3.14, then the 10% reserve", () => {
+    const result = resolveLedLength({
+      shapeIsRectangular: false,
+      shapeId: "round",
+      widthMm: 600,
+      heightMm: 600,
+      positioning: "perimeter",
+    });
+    assert.ok(!("error" in result));
+    assert.equal(result.baseLengthMm, 1884);
+    assert.equal(result.baseLengthM, 1.88);
+    assert.equal(result.totalLengthM, 2.07);
+    assert.equal(result.source, "auto-round");
+    assert.equal(ledLengthCost(result.totalLengthM, 40), 82.8);
+  });
+});
+
 describe("special shapes", () => {
   it("does not auto-use bounding-rect perimeter for special shapes", () => {
     const result = resolveLedLength({

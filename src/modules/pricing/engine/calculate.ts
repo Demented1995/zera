@@ -1,6 +1,8 @@
 import { computeGlassArea, resolveCurvedEdgeAddsMm } from "@/modules/pricing/engine/glass";
+import { ROUND_LED_PI } from "@/modules/pricing/engine/led-length";
 import { applyMarkup, roundMoney } from "@/modules/pricing/engine/money";
 import { computeSandblastCost } from "@/modules/pricing/engine/sandblast";
+import { INSTALL_CATALOG_SEED } from "@/modules/materials/unpriced-catalog";
 import {
   MATERIAL_SEED_KEYS,
   UNCONFIRMED_UOM,
@@ -13,6 +15,90 @@ import {
   type FinancialSummary,
   type ServiceLine,
 } from "@/modules/pricing/engine/types";
+
+type CatalogMeasure = "meter" | "area" | "piece" | "service" | "other";
+
+function measureOf(unit: string | null | undefined): CatalogMeasure {
+  const text = (unit ?? "").trim().toLocaleLowerCase("ro");
+  if (text === "m²" || text === "m2" || text === "mp") {
+    return "area";
+  }
+  if (text === "metru" || text === "ml" || text === "m") {
+    return "meter";
+  }
+  if (text.startsWith("buc")) {
+    return "piece";
+  }
+  if (text === "serviciu") {
+    return "service";
+  }
+  return "other";
+}
+
+/** Outline in meters. Rectangle uses the perimeter. Round uses diameter × 3.14. */
+function linearMeters(input: CalculationInput): number | null {
+  if (!(input.widthMm > 0) || !(input.heightMm > 0)) {
+    return null;
+  }
+  if (input.shape === "RECTANGLE") {
+    return (2 * (input.widthMm + input.heightMm)) / 1000;
+  }
+  if (input.shapeId === "round") {
+    return roundMoney((input.widthMm * ROUND_LED_PI) / 1000);
+  }
+  return null;
+}
+
+/**
+ * The catalog unit decides the quantity. A length already calculated for the
+ * LED, the diffuser, or a facet stays. A piece count on a meter or m² material
+ * follows the mirror instead.
+ */
+function quantityForCatalogUnit(
+  detail: DetailedComponentLine,
+  material: CatalogMaterial,
+  linearM: number | null,
+  areaM2: number,
+): { quantity: number; unit: string; note?: string } {
+  const catalog = measureOf(material.unitOfMeasure);
+  const line = measureOf(detail.unit);
+
+  if (catalog === "area") {
+    if (line === "area" && detail.quantity > 0) {
+      return { quantity: detail.quantity, unit: "m²" };
+    }
+    return {
+      quantity: areaM2 > 0 ? areaM2 : 0,
+      unit: "m²",
+      note: "Cantitate = suprafața oglinzii.",
+    };
+  }
+
+  if (catalog === "meter") {
+    const keepsComputedLength =
+      detail.quantity > 0 && line === "meter" && detail.group !== "frame";
+    if (keepsComputedLength) {
+      return { quantity: detail.quantity, unit: "metru" };
+    }
+    if (linearM != null && linearM > 0) {
+      return {
+        quantity: linearM,
+        unit: "metru",
+        note: "Cantitate = metru liniar.",
+      };
+    }
+    if (line === "meter" && detail.quantity > 0) {
+      return { quantity: detail.quantity, unit: "metru" };
+    }
+    return {
+      quantity: 0,
+      unit: "metru",
+      note: "Metru liniar neconfirmat pentru această formă.",
+    };
+  }
+
+  return { quantity: detail.quantity, unit: detail.unit };
+}
 
 function findMaterial(
   materials: CatalogMaterial[],
@@ -261,6 +347,8 @@ export function calculateMirrorPricing(
     }
   }
 
+  const outlineM = linearMeters(input);
+
   for (const detail of input.detailedComponents ?? []) {
     if (detail.quantity === 0 && !detail.required) {
       continue;
@@ -377,10 +465,16 @@ export function calculateMirrorPricing(
       continue;
     }
 
-    if (detail.quantity === 0) {
+    const priced = quantityForCatalogUnit(
+      detail,
+      material!,
+      outlineM,
+      glassArea.areaM2,
+    );
+    if (priced.quantity === 0) {
       if (detail.required) {
         const reason =
-          detail.note ?? `${detail.label}: cantitate / lungime de confirmat`;
+          priced.note ?? detail.note ?? `${detail.label}: cantitate / lungime de confirmat`;
         missingCosts.push(reason);
         componentAmounts.push(null);
         lines.push({
@@ -388,10 +482,10 @@ export function calculateMirrorPricing(
           key: detail.key,
           label: material!.name ?? detail.label,
           quantity: 0,
-          unit: detail.unit,
+          unit: priced.unit,
           unitPrice: material!.unitPrice,
           amount: null,
-          note: detail.note,
+          note: priced.note ?? detail.note,
           incompleteReason: reason,
         });
         pushCostBucket(electricalBuckets, processingBuckets, detail.group, null);
@@ -399,17 +493,17 @@ export function calculateMirrorPricing(
       continue;
     }
 
-    const amount = roundMoney(detail.quantity * material!.unitPrice!);
+    const amount = roundMoney(priced.quantity * material!.unitPrice!);
     componentAmounts.push(amount);
     lines.push({
       kind: "COMPONENT",
       key: detail.key,
       label: detail.label,
-      quantity: detail.quantity,
-      unit: detail.unit,
+      quantity: priced.quantity,
+      unit: priced.unit,
       unitPrice: material!.unitPrice,
       amount,
-      note: detail.note,
+      note: priced.note ?? detail.note,
     });
     pushCostBucket(electricalBuckets, processingBuckets, detail.group, amount);
   }
@@ -623,11 +717,32 @@ export function calculateMirrorPricing(
 
   if (hasServiceLines) {
     for (const service of input.serviceLines!) {
-      if (service.quantity === 0 && !service.required) {
+      let serviceQuantity = service.quantity;
+      let serviceUnit = service.unit;
+      let serviceNote = service.note;
+      if (service.group === "install") {
+        const installType = service.key.slice("install-".length);
+        const seed =
+          installType in INSTALL_CATALOG_SEED
+            ? INSTALL_CATALOG_SEED[installType as keyof typeof INSTALL_CATALOG_SEED]
+            : null;
+        const installMaterial = seed ? findMaterial(input.materials, seed) : undefined;
+        const installMeasure = measureOf(installMaterial?.unitOfMeasure);
+        if (installMeasure === "area" && glassArea.areaM2 > 0) {
+          serviceQuantity = glassArea.areaM2;
+          serviceUnit = "m²";
+          serviceNote = "Cantitate = suprafața oglinzii.";
+        } else if (installMeasure === "meter" && outlineM != null && outlineM > 0) {
+          serviceQuantity = outlineM;
+          serviceUnit = "metru";
+          serviceNote = "Cantitate = metru liniar.";
+        }
+      }
+      if (serviceQuantity === 0 && !service.required) {
         continue;
       }
       if (service.unitPrice === null || !Number.isFinite(service.unitPrice)) {
-        if (service.required || service.quantity > 0) {
+        if (service.required || serviceQuantity > 0) {
           const reason = `${service.label}: tarif neconfigurat`;
           missingCosts.push(reason);
           serviceAmounts.push(null);
@@ -636,17 +751,17 @@ export function calculateMirrorPricing(
             kind: "SERVICE",
             key: service.key,
             label: service.label,
-            quantity: service.quantity,
-            unit: service.unit,
+            quantity: serviceQuantity,
+            unit: serviceUnit,
             unitPrice: null,
             amount: null,
-            note: service.note,
+            note: serviceNote,
             incompleteReason: reason,
           });
         }
         continue;
       }
-      if (service.quantity <= 0) {
+      if (serviceQuantity <= 0) {
         if (service.required) {
           missingCosts.push(`${service.label}: cantitate invalidă`);
           serviceAmounts.push(null);
@@ -654,19 +769,19 @@ export function calculateMirrorPricing(
         }
         continue;
       }
-      const amount = roundMoney(service.quantity * service.unitPrice);
+      const amount = roundMoney(serviceQuantity * service.unitPrice);
       serviceAmounts.push(amount);
       serviceBuckets[serviceGroupKey(service.group)].push(amount);
       lines.push({
         kind: "SERVICE",
         key: service.key,
         label: service.label,
-        quantity: service.quantity,
-        unit: service.unit,
+        quantity: serviceQuantity,
+        unit: serviceUnit,
         unitPrice: service.unitPrice,
         amount,
         note:
-          service.note ??
+          serviceNote ??
           "Nu se aplică adaos en-gros / retail automat pe servicii.",
       });
     }

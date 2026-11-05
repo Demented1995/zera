@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { PreviewControl } from "@/modules/catalog/preview/types";
-import { selectedCartLines } from "@/modules/shop/cart-summary";
+import { selectedCartLines, selectedOptionSpecs } from "@/modules/shop/cart-summary";
 
 const lumi: PreviewControl[] = [
   {
@@ -123,6 +123,11 @@ describe("cart option summary", () => {
       "Dimensiuni: 600 × 800 mm",
       "Sticlă: Standard",
       "Culoare LED: 4000K",
+    ]);
+    assert.deepEqual(selectedOptionSpecs(lumi), [
+      { label: "Dimensiuni", value: "600 × 800 mm" },
+      { label: "Sticlă", value: "Standard" },
+      { label: "Culoare LED", value: "4000K" },
     ]);
   });
 

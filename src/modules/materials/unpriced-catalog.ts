@@ -86,7 +86,7 @@ export const UNPRICED_MATERIALS: UnpricedCatalogItem[] = [
   { seedKey: UNPRICED_SEED.lightingBlockCover, name: "Capac bloc iluminare", unitOfMeasure: "bucată" },
   { seedKey: UNPRICED_SEED.connectors, name: "Conectori", unitOfMeasure: "bucată" },
   { seedKey: UNPRICED_SEED.assembly, name: "Ansamblu", unitOfMeasure: "bucată" },
-  { seedKey: UNPRICED_SEED.plexiglassDiffuser, name: "Difuzor plexiglas", unitOfMeasure: "bucată" },
+  { seedKey: UNPRICED_SEED.plexiglassDiffuser, name: "Difuzor plexiglas", unitOfMeasure: "metru" },
   { seedKey: UNPRICED_SEED.aluminiumDiffusionProfile, name: "Profil aluminiu difuzie", unitOfMeasure: "metru" },
   { seedKey: UNPRICED_SEED.sandblastPainted, name: "Sablare vopsită", unitOfMeasure: "m²" },
   { seedKey: UNPRICED_SEED.sandblastLaser, name: "Sablare laser", unitOfMeasure: "m²" },

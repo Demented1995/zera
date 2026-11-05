@@ -268,6 +268,7 @@ export function ModelTechEditor({
           widthMm={parsed.ok ? parsed.widthMm : null}
           heightMm={parsed.ok ? parsed.heightMm : null}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
+          shapeId={selectedShape?.id}
           showTemperature={false}
           onChange={(lighting) => update("lighting", lighting)}
         />

@@ -6,6 +6,7 @@ import {
   type CommercialConfig,
 } from "@/modules/configurator/commercial";
 import {
+  buildLightingDetailedComponents,
   defaultLedSystem,
   defaultLightingConfig,
   type LightingConfig,
@@ -824,5 +825,32 @@ describe("configurator Stage 5.4 commercial", () => {
     );
     assert.equal(quote.calculation?.financial?.services.delivery, 50);
     assert.equal(quote.calculation?.status, "COMPLETE");
+  });
+
+  it("prices the plexiglass diffuser by the LED meters, not a fixed quantity", () => {
+    function diffuserMeters(widthMm: number, heightMm: number) {
+      const lighting = defaultLightingConfig();
+      lighting.lightingType = "back";
+      lighting.back.positioning = "perimeter";
+      lighting.extraComponents = lighting.extraComponents.map((item) =>
+        item.id === "plexiglass-diffuser"
+          ? { ...item, enabled: true, qty: 2, side: "back" as const }
+          : item,
+      );
+      const built = buildLightingDetailedComponents({
+        lighting,
+        shapeIsRectangular: true,
+        widthMm,
+        heightMm,
+      });
+      return built.detailedComponents.find((item) => item.key.startsWith("extra-plexiglass"));
+    }
+
+    const large = diffuserMeters(2000, 2000);
+    const small = diffuserMeters(100, 100);
+    assert.equal(large?.quantity, 8.8);
+    assert.equal(large?.unit, "metru");
+    assert.equal(small?.quantity, 0.44);
+    assert.notEqual(large?.quantity, small?.quantity);
   });
 });

@@ -244,12 +244,14 @@ export function resolveLedSystem(options: {
   side: "front" | "back";
   system: LedSystemConfig;
   shapeIsRectangular: boolean;
+  shapeId?: string;
   widthMm: number;
   heightMm: number;
 }): LedSystemResolved {
   const strip = getStripType(options.system.stripTypeId);
   const resolved = resolveLedLength({
     shapeIsRectangular: options.shapeIsRectangular,
+    shapeId: options.shapeId,
     widthMm: options.widthMm,
     heightMm: options.heightMm,
     positioning: options.system.positioning,
@@ -275,6 +277,7 @@ export function resolveLedSystem(options: {
 export function buildLightingDetailedComponents(options: {
   lighting: LightingConfig;
   shapeIsRectangular: boolean;
+  shapeId?: string;
   widthMm: number;
   heightMm: number;
 }): {
@@ -282,7 +285,7 @@ export function buildLightingDetailedComponents(options: {
   ledSystems: LedSystemResolved[];
   blockers: string[];
 } {
-  const { lighting, shapeIsRectangular, widthMm, heightMm } = options;
+  const { lighting, shapeIsRectangular, shapeId, widthMm, heightMm } = options;
   const detailedComponents: DetailedComponentLine[] = [];
   const ledSystems: LedSystemResolved[] = [];
   const blockers: string[] = [];
@@ -305,6 +308,7 @@ export function buildLightingDetailedComponents(options: {
       side,
       system,
       shapeIsRectangular,
+      shapeId,
       widthMm,
       heightMm,
     });
@@ -410,13 +414,26 @@ export function buildLightingDetailedComponents(options: {
         : extra.side === "back"
           ? "spate"
           : "comun";
+    const isDiffuser = (LIGHTING_DIFFUSER_IDS as readonly string[]).includes(extra.id);
+    const ledSide =
+      extra.side === "front" || extra.side === "back"
+        ? extra.side
+        : lightingUsesBack(lighting.lightingType)
+          ? "back"
+          : "front";
+    const ledLength = ledSystems.find((item) => item.side === ledSide)?.length;
     detailedComponents.push({
       key: `extra-${extra.id}-${extra.side}`,
       label: `${meta?.label ?? extra.id} (${sideLabel})`,
       seedKey: meta?.materialSeedKey ?? null,
-      quantity: extra.qty,
-      unit: "bucată",
+      quantity: isDiffuser ? (ledLength?.totalLengthM ?? 0) : extra.qty,
+      unit: isDiffuser ? "metru" : "bucată",
       group: "accessory",
+      note: isDiffuser
+        ? ledLength
+          ? `Aceeași lungime ca banda LED: ${ledLength.totalLengthM.toFixed(2)} m`
+          : "Lungimea difuzorului urmează banda LED, care nu este confirmată."
+        : undefined,
       required: true,
     });
     if (!meta?.materialSeedKey) {

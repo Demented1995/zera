@@ -3,6 +3,9 @@ import { roundMoney } from "@/modules/pricing/engine/money";
 /** Joint/connection supplement applied once to the base LED length. */
 export const LED_LENGTH_SUPPLEMENT_RATIO = 0.1;
 
+/** Confirmed circle factor for a round mirror. Not a more precise π. */
+export const ROUND_LED_PI = 3.14;
+
 export type LedPositioning =
   | "one_width"
   | "two_width"
@@ -20,7 +23,7 @@ export type LedLengthComputation = {
   /** Total billable meters after 10%. */
   totalLengthM: number;
   /** How the base length was obtained. */
-  source: "auto-rectangular" | "manual" | "unconfirmed";
+  source: "auto-rectangular" | "auto-round" | "manual" | "unconfirmed";
   note?: string;
 };
 
@@ -68,11 +71,13 @@ export function applyLedLengthSupplement(baseLengthMm: number): LedLengthComputa
 /**
  * Resolve LED length for a system.
  * - Rectangular mirrors: auto from positioning.
- * - Special shapes without a confirmed contour formula: require manual base mm
+ * - Round mirrors: diameter × 3.14, then the same 10% reserve.
+ * - Other special shapes: require a manual base mm
  *   (10% applied once on that base — never doubled).
  */
 export function resolveLedLength(options: {
   shapeIsRectangular: boolean;
+  shapeId?: string;
   widthMm: number;
   heightMm: number;
   positioning: LedPositioning;
@@ -81,11 +86,25 @@ export function resolveLedLength(options: {
 }): LedLengthComputation | { error: string } {
   const {
     shapeIsRectangular,
+    shapeId,
     widthMm,
     heightMm,
     positioning,
     manualBaseLengthMm,
   } = options;
+
+  if (shapeId === "round") {
+    if (!(widthMm > 0)) {
+      return {
+        error: "Lungime LED de confirmat — diametrul nu este setat.",
+      };
+    }
+    return {
+      ...applyLedLengthSupplement(widthMm * ROUND_LED_PI),
+      source: "auto-round",
+      note: "Rotund: diametru × 3,14, apoi rezerva de 10%.",
+    };
+  }
 
   if (shapeIsRectangular) {
     const baseMm = computeRectangularLedBaseMm(widthMm, heightMm, positioning);

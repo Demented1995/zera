@@ -309,3 +309,102 @@ describe("markups", () => {
     );
   });
 });
+
+describe("catalog unit decides the quantity", () => {
+  it("bills meter materials by the outline and m² materials by the area", () => {
+    const materials: CatalogMaterial[] = [
+      ...catalog,
+      {
+        seedKey: "abs",
+        name: "ABS",
+        unitPrice: 10,
+        unitOfMeasure: "metru",
+        isActive: true,
+      },
+      {
+        seedKey: "logo-luminos",
+        name: "Logo luminos",
+        unitPrice: 600,
+        unitOfMeasure: "m²",
+        isActive: true,
+      },
+      {
+        seedKey: "profil-montaj",
+        name: "Profil de montaj",
+        unitPrice: 30,
+        unitOfMeasure: "bucată",
+        isActive: true,
+      },
+    ];
+
+    function quote(widthMm: number, heightMm: number) {
+      return calculateMirrorPricing(
+        baseInput({
+          widthMm,
+          heightMm,
+          materials,
+          detailedComponents: [
+            {
+              key: "extra-abs",
+              label: "ABS",
+              seedKey: "abs",
+              quantity: 2,
+              unit: "bucată",
+              group: "accessory",
+              required: true,
+            },
+            {
+              key: "led-back",
+              label: "Bandă LED",
+              seedKey: MATERIAL_SEED_KEYS.led,
+              quantity: 8.8,
+              unit: "metru",
+              group: "led-back",
+              required: true,
+            },
+            {
+              key: "logo",
+              label: "Logo luminos",
+              seedKey: "logo-luminos",
+              quantity: 1,
+              unit: "bucată",
+              group: "branding",
+              required: true,
+            },
+            {
+              key: "profile",
+              label: "Profil de montaj",
+              seedKey: "profil-montaj",
+              quantity: 4,
+              unit: "bucată",
+              group: "accessory",
+              required: true,
+            },
+          ],
+        }),
+      );
+    }
+
+    const large = quote(2000, 2000);
+    const small = quote(100, 100);
+    const absLarge = large.lines.find((line) => line.key === "extra-abs");
+    const absSmall = small.lines.find((line) => line.key === "extra-abs");
+    const led = large.lines.find((line) => line.key === "led-back");
+    const logo = large.lines.find((line) => line.key === "logo");
+    const profile = large.lines.find((line) => line.key === "profile");
+
+    assert.equal(absLarge?.quantity, 8);
+    assert.equal(absLarge?.unit, "metru");
+    assert.equal(absLarge?.amount, 80);
+    assert.equal(absSmall?.quantity, 0.4);
+    assert.equal(absSmall?.amount, 4);
+    assert.equal(led?.quantity, 8.8);
+    assert.equal(led?.amount, 352);
+    assert.equal(logo?.quantity, 4);
+    assert.equal(logo?.unit, "m²");
+    assert.equal(logo?.amount, 2400);
+    assert.equal(profile?.quantity, 4);
+    assert.equal(profile?.unit, "bucată");
+    assert.equal(profile?.amount, 120);
+  });
+});

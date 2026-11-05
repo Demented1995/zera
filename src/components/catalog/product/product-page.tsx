@@ -11,6 +11,7 @@ import { isEmptyDocument } from "@/modules/catalog/content/document";
 import { productStatusNote } from "@/modules/catalog/preview/product-presentation";
 import type { CustomerPreviewPayload, PreviewPatch } from "@/modules/catalog/preview/types";
 import { formatMdl, type PlaceOrderInput, type PlaceOrderResult } from "@/modules/orders/public";
+import { selectedOptionSpecs } from "@/modules/shop/cart-summary";
 
 type Props = {
   customer: CustomerPreviewPayload;
@@ -42,10 +43,12 @@ export function ProductPage({
     !pending &&
     customer.notices.length === 0;
 
-  const specs = [
-    ...(copy?.specs ?? []).map((spec) => ({ id: spec.label, ...spec })),
-    ...(copy?.extraSpecs ?? []),
-  ];
+  const selectedSpecs = (
+    customer.controls.length > 0
+      ? selectedOptionSpecs(customer.controls)
+      : (copy?.specs ?? [])
+  ).map((spec, index) => ({ id: `${spec.label}-${index}`, ...spec }));
+  const specs = [...selectedSpecs, ...(copy?.extraSpecs ?? [])];
   const showDescription = copy ? !isEmptyDocument(copy.description) : false;
   const showHighlights = copy ? !isEmptyDocument(copy.highlightsDocument) : false;
   const showCare = copy ? !isEmptyDocument(copy.careDocument) : false;

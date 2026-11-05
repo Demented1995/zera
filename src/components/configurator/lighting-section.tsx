@@ -28,6 +28,7 @@ type LightingSectionProps = {
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
+  shapeId?: string;
   /** Model setup leaves LED color to the customer. */
   showTemperature?: boolean;
   onChange: (next: LightingConfig) => void;
@@ -42,6 +43,7 @@ export function LightingSection({
   widthMm,
   heightMm,
   shapeIsRectangular,
+  shapeId,
   showTemperature = true,
   onChange,
 }: LightingSectionProps) {
@@ -123,6 +125,7 @@ export function LightingSection({
           widthMm={widthMm}
           heightMm={heightMm}
           shapeIsRectangular={shapeIsRectangular}
+          shapeId={shapeId}
           showTemperature={showTemperature}
           onChange={patchFront}
         />
@@ -135,6 +138,7 @@ export function LightingSection({
           widthMm={widthMm}
           heightMm={heightMm}
           shapeIsRectangular={shapeIsRectangular}
+          shapeId={shapeId}
           showTemperature={showTemperature}
           onChange={patchBack}
         />
@@ -338,6 +342,7 @@ function LedSystemFields({
   widthMm,
   heightMm,
   shapeIsRectangular,
+  shapeId,
   showTemperature,
   onChange,
 }: {
@@ -346,6 +351,7 @@ function LedSystemFields({
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
+  shapeId?: string;
   showTemperature: boolean;
   onChange: (patch: Partial<LedSystemConfig>) => void;
 }) {
@@ -353,6 +359,7 @@ function LedSystemFields({
     widthMm !== null && heightMm !== null
       ? resolveLedLength({
           shapeIsRectangular,
+          shapeId,
           widthMm,
           heightMm,
           positioning: system.positioning,
@@ -453,7 +460,7 @@ function LedSystemFields({
         </dl>
       )}
 
-      {!shapeIsRectangular ? (
+      {!shapeIsRectangular && shapeId !== "round" ? (
         <div className="grid gap-1.5">
           <Label>Lungime de bază (mm) — formulă neconfirmată</Label>
           <Input
