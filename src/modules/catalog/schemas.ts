@@ -12,6 +12,8 @@ export const modelCategorySchema = z.object({
     .max(80)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug invalid"),
   description: z.string().max(500).optional().nullable(),
+  nameRu: z.string().max(120).optional().nullable(),
+  descriptionRu: z.string().max(500).optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
   isActive: z.boolean().optional().default(true),
 });

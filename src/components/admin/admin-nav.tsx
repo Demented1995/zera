@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 type AdminNavProps = {
   items: AdminNavItem[];
+  badges?: Record<string, number>;
   collapsed?: boolean;
   onNavigate?: () => void;
 };
@@ -19,7 +20,7 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AdminNav({ items, collapsed = false, onNavigate }: AdminNavProps) {
+export function AdminNav({ items, badges = {}, collapsed = false, onNavigate }: AdminNavProps) {
   const pathname = usePathname();
 
   return (
@@ -27,6 +28,7 @@ export function AdminNav({ items, collapsed = false, onNavigate }: AdminNavProps
       {items.map((item) => {
         const active = isActivePath(pathname, item.href);
         const Icon = item.icon;
+        const badge = badges[item.href] ?? 0;
 
         return (
           <Link
@@ -42,9 +44,23 @@ export function AdminNav({ items, collapsed = false, onNavigate }: AdminNavProps
               collapsed && "justify-center px-2",
             )}
           >
-            <Icon className="size-4 shrink-0" aria-hidden />
+            <span className="relative">
+              <Icon className="size-4 shrink-0" aria-hidden />
+              {collapsed && badge > 0 ? (
+                <span className="absolute -top-2 -right-3 rounded-full bg-foreground px-1 text-[10px] leading-4 text-background">
+                  +{badge}
+                </span>
+              ) : null}
+            </span>
             {!collapsed ? <span className="truncate">{item.title}</span> : null}
-            {collapsed ? <span className="sr-only">{item.title}</span> : null}
+            {!collapsed && badge > 0 ? (
+              <span
+                className={`ml-auto rounded-full px-1.5 text-xs leading-5 ${active ? "bg-background text-foreground" : "bg-foreground text-background"}`}
+              >
+                +{badge}
+              </span>
+            ) : null}
+            {collapsed ? <span className="sr-only">{item.title}{badge > 0 ? `, +${badge} nedeschise` : ""}</span> : null}
           </Link>
         );
       })}

@@ -12,12 +12,18 @@ import { defaultProcessingConfig } from "@/modules/configurator/processing";
 import { parseCustomerInput } from "@/modules/customers/schemas";
 import { saveCustomer } from "@/modules/customers/service";
 import { canManageOrders } from "@/modules/orders/permissions";
-import { getOrder, listOrders, readOrderSummary } from "@/modules/orders/queries";
-import { acceptedRetailPrice, orderBalance } from "@/modules/orders/public";
-import { parseOrderAdvance, parsePlaceOrder } from "@/modules/orders/schemas";
+import { getOrder, listOrders, listSiteRequests, readOrderSummary } from "@/modules/orders/queries";
+import { acceptedRetailPrice, mirrorCode, ONE_CLICK_ADDRESS, orderBalance } from "@/modules/orders/public";
+import { parseCustomProject, parseOneClickOrder, parseOrderAdvance, parsePlaceOrder } from "@/modules/orders/schemas";
 import {
+  addOrderMirror,
+  deleteOrder,
   linkOrderCustomer,
   placeOrder,
+  removeOrderMirror,
+  saveOrderMirror,
+  sendSiteRequestToProduction,
+  setMirrorStatus,
   setOrderAdvance,
   setOrderStatus,
 } from "@/modules/orders/service";
@@ -61,6 +67,8 @@ describe("orders", () => {
     assert.equal(acceptedRetailPrice({ status: "COMPLETE", retailPrice: null }), null);
     assert.equal(acceptedRetailPrice({ status: "COMPLETE", retailPrice: 489.6 }), 489.6);
     assert.equal(orderBalance(489.6, 100), 389.6);
+    assert.equal(mirrorCode("CMD-2026-0013", 1), "CMD-2026-0013/1");
+    assert.equal(mirrorCode("CMD-2026-0013", 2), "CMD-2026-0013/2");
   });
 
   it("rejects passwords, registration fields, and a client-supplied price", () => {
@@ -79,6 +87,41 @@ describe("orders", () => {
     assert.equal(parsePlaceOrder({ ...base, deliveryAddress: "ab" }).ok, false);
     const tagged = parsePlaceOrder({ ...base, customerName: "<b>Ana</b> Pop" });
     assert.equal(tagged.ok && tagged.data.customerName, "Ana Pop");
+    const oneClick = parseOneClickOrder({
+      modelId: base.modelId,
+      request: {},
+      customerName: "Ana Pop",
+      customerPhone: "+37360000000",
+    });
+    assert.equal(oneClick.ok && oneClick.data.deliveryAddress, ONE_CLICK_ADDRESS);
+    const oneClickAddress = parseOneClickOrder({
+      modelId: base.modelId,
+      request: {},
+      customerName: "Ana Pop",
+      customerPhone: "+37360000000",
+      deliveryAddress: "Str. Test 1",
+    });
+    assert.equal(oneClickAddress.ok && oneClickAddress.data.deliveryAddress, "Str. Test 1");
+    assert.equal(
+      parseOneClickOrder({
+        modelId: base.modelId,
+        request: {},
+        customerName: "Ana Pop",
+        customerPhone: "+37360000000",
+        deliveryAddress: "ab",
+      }).ok,
+      false,
+    );
+    const project = parseCustomProject({
+      customerName: "Ana Pop",
+      customerPhone: "+37360000000",
+      message: "Oglindă pentru baie",
+    });
+    assert.equal(project.ok && project.data.deliveryAddress, "");
+    assert.equal(project.ok && project.data.message, "Oglindă pentru baie");
+    assert.equal(parseCustomProject({ customerName: "A", customerPhone: "+37360000000" }).ok, false);
+    assert.equal(parseOneClickOrder({ ...base, email: "a@b.c" }).ok, false);
+    assert.equal(parseOneClickOrder({ modelId: base.modelId, request: {}, customerName: "A", customerPhone: "+37360000000" }).ok, false);
     assert.equal(parseOrderAdvance({ orderId: "x", advanceAmount: 10.555 }).ok, false);
   });
 
@@ -203,8 +246,24 @@ describe("orders", () => {
     assert.equal(summary?.widthMm, 600);
     assert.equal(findForbiddenCommercialKey(summary), null);
 
-    const listed = await listOrders({ q: phone.slice(-8), status: "ALL", page: 1 });
+    const listed = await listOrders({ q: phone.slice(-8), status: "ALL", mirror: "ALL", page: 1 });
     assert.equal(listed.rows.some((row) => row.id === placed.id), true);
+    assert.equal(listed.rows.some((row) => row.id === second.id), false);
+    const requests = await listSiteRequests();
+    assert.equal(requests.some((row) => row.id === second.id), true);
+    const blockedDelete = await deleteOrder(second.id);
+    assert.equal(blockedDelete.ok, false);
+    assert.ok(await prisma.customerOrder.findUnique({ where: { id: second.id } }));
+    const produced = await sendSiteRequestToProduction({ orderId: second.id, staffId: user.id });
+    assert.equal(produced.ok, true);
+    const producedRow = await prisma.customerOrder.findUnique({ where: { id: second.id } });
+    assert.equal(producedRow?.status, "NEW");
+    assert.equal(producedRow?.mirrorStatus, "WAITING");
+    assert.equal(producedRow?.placedById, user.id);
+    assert.equal(Number(producedRow?.retailPrice), second.retailPrice);
+    assert.equal(producedRow?.customerName, "Ana Pop");
+    const listedAfter = await listOrders({ q: phone.slice(-8), status: "ALL", mirror: "ALL", page: 1 });
+    assert.equal(listedAfter.rows.some((row) => row.id === second.id), true);
 
     const same = await setOrderStatus({
       orderId: placed.id,
@@ -215,7 +274,7 @@ describe("orders", () => {
     assert.equal(same.ok, false);
     const moved = await setOrderStatus({
       orderId: placed.id,
-      status: "CONFIRMED",
+      status: "CLOSED_SUCCESS",
       note: "Confirmată telefonic",
       changedById: user.id,
     });
@@ -294,5 +353,82 @@ describe("orders", () => {
     assert.equal(afterLink?.customerName, "Ana Pop");
     assert.equal(afterLink?.customerPhone, phone);
     assert.equal(afterLink?.customerId, customer.id);
+
+    const storedConfig = await prisma.customerOrder.findUnique({
+      where: { id: placed.id },
+      select: { configJson: true },
+    });
+    const unchanged = await saveOrderMirror({
+      orderId: placed.id,
+      mirrorKey: "principal",
+      config: storedConfig?.configJson,
+    });
+    assert.equal(unchanged.ok, true);
+    if (unchanged.ok) {
+      assert.equal(unchanged.price, placed.retailPrice);
+    }
+    const added = await addOrderMirror({ orderId: placed.id, modelId: model.id });
+    assert.equal(added.ok, true);
+    const withLines = await prisma.customerOrder.findUnique({
+      where: { id: placed.id },
+      include: { lines: { orderBy: { sortOrder: "asc" } } },
+    });
+    assert.equal(withLines?.lines.length, 2);
+    assert.equal(Number(withLines?.lines[0]?.unitPrice), placed.retailPrice);
+    const mirrorStatus = await setMirrorStatus({
+      orderId: placed.id,
+      mirrorKey: withLines?.lines[0]?.id ?? "",
+      status: "ASSEMBLED",
+    });
+    assert.equal(mirrorStatus.ok, true);
+    const afterStatus = await prisma.customerOrderLine.findUnique({
+      where: { id: withLines?.lines[0]?.id ?? "" },
+    });
+    assert.equal(afterStatus?.mirrorStatus, "ASSEMBLED");
+    assert.equal(Number(afterStatus?.unitPrice), placed.retailPrice);
+    assert.equal(withLines?.customerName, "Ana Pop");
+    const edited = await saveOrderMirror({
+      orderId: placed.id,
+      mirrorKey: withLines?.lines[1]?.id ?? "",
+      config: sampleConfig(1200),
+    });
+    assert.equal(edited.ok, true);
+    if (edited.ok && withLines) {
+      assert.notEqual(edited.price, Number(withLines.lines[1]?.unitPrice));
+    }
+    const afterEdit = await prisma.customerOrder.findUnique({
+      where: { id: placed.id },
+      include: { lines: true },
+    });
+    assert.equal(afterEdit?.customerName, "Ana Pop");
+    assert.equal(
+      Number(afterEdit?.lines.find((line) => line.sortOrder === 0)?.unitPrice),
+      placed.retailPrice,
+    );
+    assert.deepEqual(await removeOrderMirror({ orderId: placed.id, mirrorKey: "principal" }), {
+      ok: false,
+      message: "Oglinda nu a fost găsită.",
+    });
+    if (added.ok) {
+      const dropped = await removeOrderMirror({ orderId: placed.id, mirrorKey: added.lineId });
+      assert.equal(dropped.ok, true);
+    }
+    const afterDrop = await prisma.customerOrder.findUnique({
+      where: { id: placed.id },
+      include: { lines: true },
+    });
+    assert.equal(afterDrop?.lines.length, 1);
+    assert.equal(afterDrop?.customerName, "Ana Pop");
+    assert.equal(Number(afterDrop?.retailPrice), placed.retailPrice);
+
+    const removed = await deleteOrder(placed.id);
+    assert.equal(removed.ok, true);
+    assert.equal(await prisma.customerOrder.findUnique({ where: { id: placed.id } }), null);
+    assert.equal(await prisma.customerOrderLine.count({ where: { orderId: placed.id } }), 0);
+    assert.equal(await prisma.orderStatusEvent.count({ where: { orderId: placed.id } }), 0);
+    assert.ok(await prisma.mirrorModel.findUnique({ where: { id: model.id } }));
+    assert.ok(await prisma.customer.findUnique({ where: { id: customer.id } }));
+    const missing = await deleteOrder("missing-order");
+    assert.equal(missing.ok, false);
   });
 });

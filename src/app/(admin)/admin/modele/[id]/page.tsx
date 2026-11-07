@@ -19,6 +19,7 @@ import {
   CALC_STATUS_LABEL,
   MODEL_STATUS_LABEL,
 } from "@/modules/catalog/status";
+import { getConfiguratorLayout } from "@/modules/configurator/layout-store";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { listModelImages } from "@/modules/catalog/images/service";
 import { listSavedConfigurations } from "@/modules/offers/queries";
@@ -46,7 +47,7 @@ export default async function ModelEditPage({ params }: PageProps) {
     redirect(`/admin/configurator?modelId=${model.id}`);
   }
 
-  const [categories, configs, images] = await Promise.all([
+  const [categories, configs, images, sections] = await Promise.all([
     listMirrorCategories({ activeOnly: true }),
     listSavedConfigurations({
       q: "",
@@ -55,6 +56,7 @@ export default async function ModelEditPage({ params }: PageProps) {
       order: "desc",
     }),
     listModelImages(prisma, model.id),
+    getConfiguratorLayout(),
   ]);
 
   const categoryOptions = [
@@ -112,6 +114,7 @@ export default async function ModelEditPage({ params }: PageProps) {
         }))}
         canEditTariffs={session.user.role === "ADMIN"}
         canManageRules={canManageConfiguratorRules(session.user.role)}
+        sections={sections}
         initial={{
           id: model.id,
           code: model.code,

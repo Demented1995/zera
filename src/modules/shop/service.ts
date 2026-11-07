@@ -8,7 +8,17 @@ import { nextOrderNumber } from "@/modules/orders/codes";
 import { placeOrder, quoteOrderConfiguration } from "@/modules/orders/service";
 import type { PlaceOrderData } from "@/modules/orders/schemas";
 import { allowCheckoutAttempt, checkoutTimingError } from "@/modules/shop/abuse";
+import {
+  CUSTOM_PROJECT_CODE,
+  CUSTOM_PROJECT_NAME,
+  CUSTOM_PROJECT_NOTE,
+  ONE_CLICK_ADDRESS,
+} from "@/modules/orders/public";
+import type { CustomProjectData } from "@/modules/orders/schemas";
+import { readProductTranslation } from "@/modules/catalog/content/translation";
 import { isSellableModel } from "@/modules/shop/catalog";
+import { getShopLocale } from "@/modules/shop/locale";
+import { localizeCustomer } from "@/modules/shop/localize";
 import { lineTotal, pricesDiffer, type CheckoutData } from "@/modules/shop/checkout";
 const UNAVAILABLE = "Modelul nu este disponibil.";
 
@@ -27,7 +37,92 @@ export async function quotePublicProduct(input: {
   if (!result.ok) {
     return result;
   }
-  return { ok: true, customer: result.customer, diagnostic: null };
+  const [locale, stored] = await Promise.all([
+    getShopLocale(),
+    prisma.mirrorModel.findUnique({
+      where: { id: input.modelId },
+      select: { translationsJson: true },
+    }),
+  ]);
+  return {
+    ok: true,
+    customer: localizeCustomer(
+      result.customer,
+      locale,
+      readProductTranslation(stored?.translationsJson),
+    ),
+    diagnostic: null,
+  };
+}
+
+export async function placeOneClickOrder(
+  input: PlaceOrderData,
+): Promise<
+  | { ok: true; id: string; number: string; retailPrice: number; currency: "MDL" }
+  | { ok: false; message: string }
+> {
+  if (
+    input.deliveryAddress !== ONE_CLICK_ADDRESS &&
+    input.deliveryAddress.trim().length < 5
+  ) {
+    return { ok: false, message: "Cererea nu a putut fi trimisă." };
+  }
+  if (!(await isSellableModel(input.modelId))) {
+    return { ok: false, message: UNAVAILABLE };
+  }
+  if (!allowCheckoutAttempt(input.customerPhone.key)) {
+    return {
+      ok: false,
+      message: "Prea multe încercări. Încercați din nou peste câteva minute.",
+    };
+  }
+  return placeOrder({
+    ...input,
+    placedById: null,
+    statusNote: "Cumpărare cu un click",
+  });
+}
+
+export async function placeCustomProject(
+  input: CustomProjectData,
+): Promise<{ ok: true; id: string; number: string } | { ok: false; message: string }> {
+  if (!allowCheckoutAttempt(input.customerPhone.key)) {
+    return {
+      ok: false,
+      message: "Prea multe încercări. Încercați din nou peste câteva minute.",
+    };
+  }
+  const number = await nextOrderNumber();
+  const created = await prisma.customerOrder.create({
+    data: {
+      number,
+      status: "NEW",
+      customerName: input.customerName,
+      customerPhone: input.customerPhone.display,
+      phoneKey: input.customerPhone.key,
+      deliveryAddress: input.deliveryAddress,
+      mirrorModelId: null,
+      modelCode: CUSTOM_PROJECT_CODE,
+      modelName: CUSTOM_PROJECT_NAME,
+      configJson: {},
+      summaryJson: { projectMessage: input.message },
+      retailPrice: 0,
+      currency: "MDL",
+      advanceAmount: 0,
+      quantity: 1,
+      placedById: null,
+      statusEvents: {
+        create: {
+          fromStatus: null,
+          toStatus: "NEW",
+          note: CUSTOM_PROJECT_NOTE,
+          changedById: null,
+        },
+      },
+    },
+    select: { id: true, number: true },
+  });
+  return { ok: true, id: created.id, number: created.number };
 }
 
 export async function placePublicOrder(

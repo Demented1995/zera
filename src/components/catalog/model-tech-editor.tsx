@@ -1,10 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
-import { CommercialSections } from "@/components/configurator/commercial-sections";
+import {
+  CommercialSections,
+  type CommercialPart,
+} from "@/components/configurator/commercial-sections";
 import { LightingSection } from "@/components/configurator/lighting-section";
-import { ProcessingSections } from "@/components/configurator/processing-sections";
+import {
+  ProcessingSections,
+  type ProcessingPart,
+} from "@/components/configurator/processing-sections";
 import { SummaryPanel } from "@/components/configurator/summary-panel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +28,12 @@ import type {
   ConfiguratorQuote,
   ConfiguratorState,
 } from "@/modules/configurator/map-to-engine";
+import {
+  defaultConfiguratorLayout,
+  visibleConfiguratorItems,
+  type ConfiguratorSectionId,
+  type ConfiguratorSectionSetting,
+} from "@/modules/configurator/layout";
 import {
   defaultProcessingConfig,
   type ProcessingConfig,
@@ -94,9 +107,28 @@ function parseNonNeg(value: string): number | null {
   return n;
 }
 
+const PROCESSING_PARTS = new Set<ConfiguratorSectionId>([
+  "processing",
+  "defog",
+  "frames",
+  "cutouts",
+  "accessories",
+  "branding",
+]);
+
+const COMMERCIAL_PARTS = new Set<ConfiguratorSectionId>([
+  "labor",
+  "packaging",
+  "delivery",
+  "install",
+  "price",
+]);
+
 type Props = {
   initialState?: ConfiguratorState | null;
   canEditTariffs?: boolean;
+  /** Same saved structure as the professional configurator. */
+  sections?: ConfiguratorSectionSetting[];
   onChange: (payload: Record<string, unknown>) => void;
 };
 
@@ -106,6 +138,7 @@ type Props = {
 export function ModelTechEditor({
   initialState = null,
   canEditTariffs = false,
+  sections = defaultConfiguratorLayout(),
   onChange,
 }: Props) {
   const [form, setForm] = useState<FormState>(
@@ -202,19 +235,24 @@ export function ModelTechEditor({
   }
 
   const displayQuote = parsed.ok ? quote : null;
+  const visibleSections = sections.filter((section) => section.enabled);
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-      <div className="space-y-5">
-        <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-          <div>
-            <h3 className="text-sm font-semibold">Configurație tehnică</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Forma, iluminarea și prelucrările definesc modelul. Dimensiunile,
-              tipul de sticlă și temperatura LED le introduce clientul.
-            </p>
-          </div>
+  function modelSection(section: ConfiguratorSectionSetting) {
+    const widthMm = parsed.ok ? parsed.widthMm : null;
+    const heightMm = parsed.ok ? parsed.heightMm : null;
+    const shapeIsRectangular = selectedShape?.engineShape === "RECTANGLE";
 
+    if (section.id === "geometry") {
+      const shown = visibleConfiguratorItems(section.items, [
+        "shape",
+        "dimensions",
+        "glass",
+      ]);
+      if (!shown.includes("shape")) {
+        return null;
+      }
+      return (
+        <section key={section.id} className="space-y-4 rounded-xl border border-border bg-card p-5">
           <div className="grid gap-2">
             <Label htmlFor="model-shape">Formă</Label>
             <select
@@ -230,12 +268,9 @@ export function ModelTechEditor({
               ))}
             </select>
             {selectedShape ? (
-              <p className="text-xs text-muted-foreground">
-                {selectedShape.description}
-              </p>
+              <p className="text-xs text-muted-foreground">{selectedShape.description}</p>
             ) : null}
           </div>
-
           {selectedShape?.edgeMode === "manual" ? (
             <fieldset className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
               <legend className="px-1 text-xs text-muted-foreground">
@@ -262,30 +297,105 @@ export function ModelTechEditor({
             </fieldset>
           ) : null}
         </section>
+      );
+    }
 
+    if (section.id === "lighting") {
+      return (
         <LightingSection
+          key={section.id}
           lighting={form.lighting}
-          widthMm={parsed.ok ? parsed.widthMm : null}
-          heightMm={parsed.ok ? parsed.heightMm : null}
-          shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
+          widthMm={widthMm}
+          heightMm={heightMm}
+          shapeIsRectangular={shapeIsRectangular}
           shapeId={selectedShape?.id}
           showTemperature={false}
+          items={section.items}
           onChange={(lighting) => update("lighting", lighting)}
         />
+      );
+    }
 
+    if (PROCESSING_PARTS.has(section.id)) {
+      return (
         <ProcessingSections
+          key={section.id}
+          only={section.id as ProcessingPart}
+          items={section.items}
           processing={form.processing}
-          widthMm={parsed.ok ? parsed.widthMm : null}
-          heightMm={parsed.ok ? parsed.heightMm : null}
-          shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
+          widthMm={widthMm}
+          heightMm={heightMm}
+          shapeIsRectangular={shapeIsRectangular}
+          shapeId={selectedShape?.id}
           onChange={(processing) => update("processing", processing)}
         />
+      );
+    }
 
+    if (COMMERCIAL_PARTS.has(section.id)) {
+      return (
         <CommercialSections
+          key={section.id}
+          only={section.id as CommercialPart}
+          items={section.items}
           commercial={form.commercial}
           canEditTariffs={canEditTariffs}
           onChange={(commercial) => update("commercial", commercial)}
         />
+      );
+    }
+
+    return null;
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+      <div className="space-y-5">
+        <div>
+          <h3 className="text-sm font-semibold">Configurație tehnică</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Apar doar elementele incluse în structura configuratorului. Tipul de
+            sticlă și temperatura LED le introduce clientul.{" "}
+            <Link href="/admin/configurator/structura" className="underline-offset-2 hover:underline">
+              Editează elementele
+            </Link>
+          </p>
+        </div>
+        <section className="space-y-3 rounded-xl border border-border bg-card p-5">
+          <div>
+            <h4 className="text-sm font-semibold">Dimensiune de început</h4>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Cu aceste valori se deschide modelul pe site. Clientul le poate
+              modifica între limitele din reguli.
+              {form.shapeId === "round"
+                ? " La oglinda rotundă, lățimea este diametrul. Pentru un cerc, pune aceeași valoare și la înălțime, de exemplu 500 × 500."
+                : ""}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="model-start-width">
+                {form.shapeId === "round" ? "Diametru / lățime (mm)" : "Lățime (mm)"}
+              </Label>
+              <Input
+                id="model-start-width"
+                inputMode="decimal"
+                value={form.widthMm}
+                onChange={(event) => update("widthMm", event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="model-start-height">Înălțime (mm)</Label>
+              <Input
+                id="model-start-height"
+                inputMode="decimal"
+                value={form.heightMm}
+                onChange={(event) => update("heightMm", event.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+        {visibleSections.map((section) => modelSection(section))}
       </div>
 
       <SummaryPanel

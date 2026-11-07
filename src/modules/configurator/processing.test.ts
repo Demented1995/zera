@@ -83,9 +83,9 @@ describe("buildProcessingDetailedComponents", () => {
     assert.equal(motion?.label, "Senzor de mișcare dezaburire");
   });
 
-  it("does not invent frame perimeter when auto rule is off", () => {
+  it("uses the rectangular perimeter when frame consumption is empty", () => {
     const processing = defaultProcessingConfig();
-    processing.frameType = "aluminium-rectangular";
+    processing.frameType = "aluminium-special";
     processing.frameConsumptionQty = 0;
     const built = buildProcessingDetailedComponents({
       processing,
@@ -97,7 +97,61 @@ describe("buildProcessingDetailedComponents", () => {
     const frame = built.detailedComponents.find((line) =>
       line.key.startsWith("frame-"),
     );
-    assert.equal(frame?.quantity, 0);
-    assert.ok(built.blockers.some((item) => item.includes("consum")));
+    assert.equal(frame?.quantity, 3.2);
+    assert.equal(
+      built.blockers.some((item) => item.includes("consum")),
+      false,
+    );
+  });
+
+  it("writes the round frame length as diameter × 3.14", () => {
+    const processing = defaultProcessingConfig();
+    processing.frameType = "aluminium-special";
+    processing.frameConsumptionQty = 0;
+    const built = buildProcessingDetailedComponents({
+      processing,
+      shapeIsRectangular: false,
+      shapeId: "round",
+      widthMm: 500,
+      heightMm: 500,
+      glassAreaM2: null,
+    });
+    const frame = built.detailedComponents.find((line) =>
+      line.key.startsWith("frame-"),
+    );
+    assert.equal(frame?.quantity, 1.57);
+    assert.equal(frame?.note, "Lungime = diametru × 3,14.");
+    assert.equal(
+      built.blockers.some((item) => item.includes("metri")),
+      false,
+    );
+  });
+
+  it("keeps an explicit frame consumption and asks for meters on a special shape", () => {
+    const processing = defaultProcessingConfig();
+    processing.frameType = "aluminium-special";
+    processing.frameConsumptionQty = 2.5;
+    const explicit = buildProcessingDetailedComponents({
+      processing,
+      shapeIsRectangular: false,
+      widthMm: 600,
+      heightMm: 1000,
+      glassAreaM2: null,
+    });
+    assert.equal(
+      explicit.detailedComponents.find((line) => line.key.startsWith("frame-"))
+        ?.quantity,
+      2.5,
+    );
+
+    processing.frameConsumptionQty = 0;
+    const missing = buildProcessingDetailedComponents({
+      processing,
+      shapeIsRectangular: false,
+      widthMm: 600,
+      heightMm: 1000,
+      glassAreaM2: null,
+    });
+    assert.ok(missing.blockers.some((item) => item.includes("metri")));
   });
 });

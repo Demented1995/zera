@@ -69,7 +69,7 @@ describe("public configurator", () => {
     assert.ok(labels.includes("Iluminare LED spate"));
     assert.ok(labels.includes("Culoare LED"));
     assert.ok(labels.includes("Întrerupător"));
-    assert.ok(labels.includes("Difuzor de iluminare"));
+    assert.equal(labels.includes("Difuzor de iluminare"), false);
     assert.ok(labels.includes("Încălzire / dezaburire"));
     assert.ok(labels.includes("Livrare"));
     assert.ok(labels.includes("Montare"));
@@ -112,6 +112,7 @@ describe("public configurator", () => {
     const rules = defaultConfiguratorRules();
     const front = defaultLightingConfig();
     front.lightingType = "front";
+    front.offerDiffuser = true;
     front.front = { ...defaultLedSystem(), temperatureK: 4000 };
     const frontLabels = buildPreviewControls(rules, state(front)).map(
       (control) => control.label,
@@ -120,12 +121,34 @@ describe("public configurator", () => {
 
     const both = defaultLightingConfig();
     both.lightingType = "both";
+    both.offerDiffuser = true;
     both.front = { ...defaultLedSystem(), temperatureK: 4000 };
     both.back = { ...defaultLedSystem(), temperatureK: 4000 };
     const bothLabels = buildPreviewControls(rules, state(both)).map(
       (control) => control.label,
     );
     assert.ok(bothLabels.includes("Difuzor de iluminare"));
+
+    const hidden = defaultLightingConfig();
+    hidden.lightingType = "back";
+    hidden.offerDiffuser = false;
+    hidden.back = { ...defaultLedSystem(), temperatureK: 4000 };
+    const hiddenLabels = buildPreviewControls(rules, state(hidden)).map(
+      (control) => control.label,
+    );
+    assert.equal(hiddenLabels.includes("Difuzor de iluminare"), false);
+
+    const refused = validateCustomerConfig({
+      modelDefault: state(hidden),
+      rules,
+      request: { diffuserEnabled: true },
+    });
+    assert.equal(
+      refused.config.lighting.extraComponents.some(
+        (item) => item.id === "plexiglass-diffuser" && item.enabled,
+      ),
+      false,
+    );
   });
 
   it("clears the switch without inventing a delivery price", () => {

@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { requireStaffSession } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
@@ -31,6 +32,7 @@ import {
 } from "@/modules/catalog/schemas";
 import { findSlugConflict, persistSlugChange } from "@/modules/catalog/content/slug-policy";
 import { publicSaleBlock } from "@/modules/shop/catalog";
+import { homepageSelectionMessage } from "@/modules/shop/homepage";
 import { isValidSlug, slugifyModelName } from "@/modules/catalog/slug";
 import {
   assertCanActivate,
@@ -112,8 +114,11 @@ export async function saveMirrorCategoryAction(
         name: data.name,
         slug: data.slug,
         description: data.description ?? null,
+        nameRu: data.nameRu?.trim() || null,
+        descriptionRu: data.descriptionRu?.trim() || null,
         sortOrder: data.sortOrder,
         isActive: data.isActive ?? true,
+        ...(data.isActive === false ? { featuredOnHome: false } : {}),
       },
     });
     revalidateCatalog();
@@ -125,6 +130,8 @@ export async function saveMirrorCategoryAction(
       name: data.name,
       slug: data.slug,
       description: data.description ?? null,
+      nameRu: data.nameRu?.trim() || null,
+      descriptionRu: data.descriptionRu?.trim() || null,
       sortOrder: data.sortOrder,
       isActive: data.isActive ?? true,
       createdById: session.user.id,
@@ -132,6 +139,66 @@ export async function saveMirrorCategoryAction(
   });
   revalidateCatalog();
   return { ok: true, message: "Categoria a fost creată.", id: created.id };
+}
+
+export async function saveHomepageCategoriesAction(raw: unknown): Promise<ActionResult> {
+  const session = await requireStaffSession();
+  if (!canManageCatalog(session.user.role)) {
+    return {
+      ok: false,
+      message: "Nu aveți permisiunea de a gestiona categoriile comerciale.",
+    };
+  }
+
+  const parsed = z
+    .object({
+      items: z
+        .array(
+          z.object({
+            id: z.string().cuid(),
+            featured: z.boolean(),
+            order: z.coerce.number().int().min(0).max(99),
+            caption: z.string().max(80).optional().nullable(),
+            captionRu: z.string().max(80).optional().nullable(),
+          }),
+        )
+        .max(50),
+    })
+    .safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, message: "Verificați categoriile alese pentru pagina principală." };
+  }
+
+  const active = await prisma.mirrorModelCategory.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  const activeIds = new Set(active.map((row) => row.id));
+  const chosen = parsed.data.items.filter((item) => item.featured && activeIds.has(item.id));
+  const limitMessage = homepageSelectionMessage(chosen.length);
+  if (limitMessage) {
+    return { ok: false, message: limitMessage };
+  }
+
+  await prisma.$transaction([
+    prisma.mirrorModelCategory.updateMany({
+      data: { featuredOnHome: false, homeSortOrder: 0, homeCaption: null, homeCaptionRu: null },
+    }),
+    ...chosen.map((item) =>
+      prisma.mirrorModelCategory.update({
+        where: { id: item.id },
+        data: {
+          featuredOnHome: true,
+          homeSortOrder: item.order,
+          homeCaption: item.caption?.trim() ? item.caption.trim() : null,
+          homeCaptionRu: item.captionRu?.trim() ? item.captionRu.trim() : null,
+        },
+      }),
+    ),
+  ]);
+
+  revalidateCatalog();
+  return { ok: true, message: "Categoriile de pe pagina principală au fost salvate." };
 }
 
 export async function saveMirrorModelAction(
@@ -501,6 +568,7 @@ export async function duplicateMirrorModelAction(
       warrantyJson: source.warrantyJson ?? undefined,
       deliveryJson: source.deliveryJson ?? undefined,
       extraSpecsJson: source.extraSpecsJson ?? undefined,
+      translationsJson: source.translationsJson ?? undefined,
       seoTitle: source.seoTitle,
       seoDescription: source.seoDescription,
       slugCustomized: true,

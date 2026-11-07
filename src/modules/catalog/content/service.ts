@@ -10,6 +10,12 @@ import {
 } from "@/modules/catalog/content/document";
 import { findSlugConflict, persistSlugChange } from "@/modules/catalog/content/slug-policy";
 import { sanitizeExtraSpecs, type DescriptiveSpec } from "@/modules/catalog/content/specs";
+import {
+  emptyProductTranslation,
+  productTranslationJson,
+  readProductTranslation,
+  type ProductTranslation,
+} from "@/modules/catalog/content/translation";
 import { slugifyModelName } from "@/modules/catalog/slug";
 
 export type ModelContentInput = {
@@ -28,6 +34,7 @@ export type ModelContentInput = {
   seoDescription: string;
   primaryImageId: string | null;
   primaryAltText: string | null;
+  russian?: ProductTranslation;
 };
 
 export type ModelContentSnapshot = {
@@ -46,6 +53,7 @@ export type ModelContentSnapshot = {
   seoDescription: string;
   primaryImageId: string | null;
   primaryAltText: string;
+  russian: ProductTranslation;
 };
 
 function storedDocument(raw: unknown, fallback = ""): RichDocument {
@@ -72,6 +80,7 @@ export function snapshotModelContent(
     extraSpecsJson: unknown;
     seoTitle: string | null;
     seoDescription: string | null;
+    translationsJson?: unknown;
   },
   primary: { id: string; altText: string } | null,
 ): ModelContentSnapshot {
@@ -91,6 +100,7 @@ export function snapshotModelContent(
     seoDescription: model.seoDescription ?? "",
     primaryImageId: primary?.id ?? null,
     primaryAltText: primary?.altText ?? "",
+    russian: readProductTranslation(model.translationsJson),
   };
 }
 
@@ -158,6 +168,7 @@ export async function saveModelContent(
           extraSpecs.length === 0 ? Prisma.JsonNull : (extraSpecs as unknown as Prisma.InputJsonValue),
         seoTitle: seoTitle || null,
         seoDescription: seoDescription || null,
+        translationsJson: productTranslationJson(input.russian ?? emptyProductTranslation()),
       },
     });
 

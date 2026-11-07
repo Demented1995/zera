@@ -23,9 +23,10 @@ type AdminHeaderProps = {
     role: string;
   };
   navItems: AdminNavItem[];
+  badges?: Record<string, number>;
 };
 
-export function AdminHeader({ title, user, navItems }: AdminHeaderProps) {
+export function AdminHeader({ title, user, navItems, badges }: AdminHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -57,6 +58,7 @@ export function AdminHeader({ title, user, navItems }: AdminHeaderProps) {
             <div className="py-3">
               <AdminNav
                 items={navItems}
+                badges={badges}
                 onNavigate={() => setMobileOpen(false)}
               />
             </div>

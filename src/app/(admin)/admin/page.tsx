@@ -1,9 +1,11 @@
+import Link from "next/link";
 import {
   Activity,
   Boxes,
   CircleDollarSign,
   ClipboardList,
   Package,
+  Wrench,
 } from "lucide-react";
 
 import { EmptyState } from "@/components/admin/empty-state";
@@ -34,6 +36,22 @@ export default function AdminDashboardPage() {
           value={null}
         />
         <StatCard label="Produse active" icon={Package} value={null} />
+      </section>
+
+      <section aria-label="Configurator profesional" className="space-y-3">
+        <h2 className="text-sm font-medium text-foreground">Configurator profesional</h2>
+        <Link
+          href="/admin/configurator/structura"
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 hover:bg-muted/40"
+        >
+          <Wrench className="mt-0.5 size-4 text-muted-foreground" />
+          <span>
+            <span className="block text-sm font-medium">Structura configuratorului</span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              Include sau ascunde categoriile și elementele din ele. Alegerea rămâne în configurator și la modelele de oglinzi.
+            </span>
+          </span>
+        </Link>
       </section>
 
       <section aria-label="Activitate recentă" className="space-y-3">

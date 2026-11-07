@@ -9,6 +9,7 @@ import type {
 } from "@/modules/catalog/rules/types";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import {
+  customerDiffuserOffered,
   defaultLightingConfig,
   LIGHTING_DIFFUSER_IDS,
   type LightingType,
@@ -335,7 +336,7 @@ function applyDiffuserChoice(
   request: CustomerConfigRequest,
   applied: string[],
 ): void {
-  if (request.diffuserEnabled === undefined) {
+  if (!customerDiffuserOffered(modelDefault.lighting) || request.diffuserEnabled === undefined) {
     return;
   }
   const ids = new Set<string>(LIGHTING_DIFFUSER_IDS);

@@ -21,7 +21,7 @@ export default async function CategoriiPage() {
     <div className="space-y-6">
       <PageHeader
         title="Categorii comerciale"
-        description="Categorii pentru modelele de oglinzi (distincte de categoriile de materiale Stage 3)."
+        description="Categorii pentru modelele de oglinzi. De aici alegi până la 4 categorii pentru centrul paginii principale."
       />
       <CategoriesManager categories={categories} canManage={canManage} />
     </div>

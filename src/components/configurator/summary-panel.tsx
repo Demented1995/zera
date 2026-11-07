@@ -15,6 +15,7 @@ import {
   lightingUsesFront,
 } from "@/modules/configurator/lighting";
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
+import { frameLengthM } from "@/modules/configurator/processing";
 import { roundMoney } from "@/modules/pricing/engine";
 
 type SummaryPanelProps = {
@@ -38,6 +39,15 @@ export function SummaryPanel({
   const calc = quote?.calculation ?? null;
   const electrical = calc?.electrical;
   const processing = calc?.processing;
+  const frameLength =
+    quote && quote.processing.frameType !== "none"
+      ? frameLengthM(
+          quote.widthMm,
+          quote.heightMm,
+          quote.shape.engineShape === "RECTANGLE",
+          quote.shape.id,
+        )
+      : null;
   const status = validationMessage
     ? "INVALID"
     : !quote
@@ -107,6 +117,26 @@ export function SummaryPanel({
           Se calculează sumarul…
         </p>
       )}
+
+      {quote && quote.processing.frameType !== "none" ? (
+        <div className="space-y-1 rounded-lg border border-border px-3 py-2 text-sm">
+          <p className="font-medium text-foreground">Lungime ramă</p>
+          {frameLength ? (
+            <p className="text-xs text-muted-foreground">
+              {frameLength.meters.toFixed(2)} m
+              {quote.shape.id === "round"
+                ? ` · diametru ${quote.widthMm} mm × 3,14`
+                : " · perimetru"}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {quote.processing.frameConsumptionQty > 0
+                ? `${quote.processing.frameConsumptionQty} m, consum scris`
+                : "Scrieți consumul în metri."}
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {quote && quote.ledSystems.length > 0 ? (
         <div className="space-y-2 rounded-lg border border-border px-3 py-2 text-sm">

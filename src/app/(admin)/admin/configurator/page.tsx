@@ -1,6 +1,9 @@
+import Link from "next/link";
+
 import { PageHeader } from "@/components/admin/page-header";
 import { ConfiguratorWorkspace } from "@/components/configurator/configurator-workspace";
 import { requireStaffSession } from "@/lib/auth/guards";
+import { getConfiguratorLayout } from "@/modules/configurator/layout-store";
 import { getMirrorModel } from "@/modules/catalog/queries";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { getSavedConfiguration } from "@/modules/offers/queries";
@@ -43,11 +46,24 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
     }
   }
 
+  const sections = await getConfiguratorLayout();
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Configurator profesional" />
+      <PageHeader
+        title="Configurator profesional"
+        actions={
+          <Link
+            href="/admin/configurator/structura"
+            className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-sm hover:bg-muted"
+          >
+            Structură
+          </Link>
+        }
+      />
       <ConfiguratorWorkspace
         canEditTariffs={isAdmin}
+        sections={sections}
         initialConfigId={initialConfigId}
         initialConfigCode={initialConfigCode}
         initialConfigName={initialConfigName}

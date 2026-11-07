@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveMirrorModelAction } from "@/modules/catalog/actions";
 import { slugifyModelName } from "@/modules/catalog/slug";
+import type { ConfiguratorSectionSetting } from "@/modules/configurator/layout";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 
 type CategoryOption = { id: string; name: string };
@@ -27,6 +28,7 @@ type ModelFormProps = {
   savedConfigs: SavedConfigOption[];
   canEditTariffs: boolean;
   canManageRules?: boolean;
+  sections?: ConfiguratorSectionSetting[];
   initial?: {
     id: string;
     code: string;
@@ -52,6 +54,7 @@ export function ModelForm({
   savedConfigs,
   canEditTariffs,
   canManageRules = false,
+  sections,
   initial = null,
 }: ModelFormProps) {
   const router = useRouter();
@@ -273,6 +276,7 @@ export function ModelForm({
         <ModelTechEditor
           initialState={initial?.config ?? null}
           canEditTariffs={canEditTariffs}
+          sections={sections}
           onChange={(payload) => {
             markDirty();
             setConfigPayload(payload);

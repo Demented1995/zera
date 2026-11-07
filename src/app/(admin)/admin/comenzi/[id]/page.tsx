@@ -2,13 +2,21 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/admin/page-header";
+import { AddOrderMirror } from "@/components/orders/add-order-mirror";
+import { MirrorStatusSelect } from "@/components/orders/mirror-status-select";
+import { DeleteOrderButton } from "@/components/orders/delete-order-button";
 import { OrderManage } from "@/components/orders/order-manage";
 import { Badge } from "@/components/ui/badge";
 import { requireStaffSession } from "@/lib/auth/guards";
-import { mediaPath } from "@/modules/catalog/images/service";
 import { canManageOrders } from "@/modules/orders/permissions";
-import { getOrder, readOrderSummary } from "@/modules/orders/queries";
-import { formatMdl, ORDER_STATUS_LABEL, orderBalance } from "@/modules/orders/public";
+import { getOrder, listOrderModelChoices, readOrderSummary } from "@/modules/orders/queries";
+import {
+  formatMdl,
+  mirrorCode,
+  ONE_CLICK_ADDRESS,
+  ORDER_STATUS_LABEL,
+  orderBalance,
+} from "@/modules/orders/public";
 
 export const metadata = {
   title: "Comandă",
@@ -28,8 +36,38 @@ export default async function ComandaPage({ params }: PageProps) {
   if (!order) {
     notFound();
   }
+  if (!order.placedById) {
+    redirect(`/admin/oferte/solicitari/${order.id}`);
+  }
 
   const summary = readOrderSummary(order.summaryJson);
+  const models = await listOrderModelChoices();
+  const mirrors =
+    order.lines.length > 0
+      ? order.lines.map((line, index) => ({
+          key: line.id,
+          extension: mirrorCode(order.number, index + 1),
+          name: line.modelName,
+          code: line.modelCode,
+          summary: readOrderSummary(line.summaryJson),
+          quantity: line.quantity,
+          unitPrice: Number(line.unitPrice),
+          lineTotal: Number(line.lineTotal),
+          mirrorStatus: line.mirrorStatus,
+        }))
+      : [
+          {
+            key: "principal",
+            extension: mirrorCode(order.number, 1),
+            name: order.modelName,
+            code: order.modelCode,
+            summary,
+            quantity: order.quantity,
+            unitPrice: Number(order.retailPrice),
+            lineTotal: Number(order.retailPrice),
+            mirrorStatus: order.mirrorStatus,
+          },
+        ];
   const retail = Number(order.retailPrice);
   const advance = Number(order.advanceAmount);
   const balance = orderBalance(retail, advance);
@@ -38,7 +76,7 @@ export default async function ComandaPage({ params }: PageProps) {
     <div className="space-y-8">
       <PageHeader
         title={order.number}
-        description="Prețul și configurația sunt cele salvate la plasare. Nu se recalculează."
+        description="Numărul și clientul sunt ai comenzii. Fiecare oglindă se deschide separat."
       />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
@@ -50,6 +88,7 @@ export default async function ComandaPage({ params }: PageProps) {
         <Link href="/admin/comenzi" className="underline-offset-2 hover:underline">
           Înapoi la comenzi
         </Link>
+        <DeleteOrderButton orderId={order.id} number={order.number} appearance="text" />
       </div>
 
       <section className="grid gap-6 lg:grid-cols-2">
@@ -57,7 +96,11 @@ export default async function ComandaPage({ params }: PageProps) {
           <h2 className="font-medium">Client</h2>
           <p>{order.customerName}</p>
           <p>{order.customerPhone}</p>
-          <p className="whitespace-pre-wrap">{order.deliveryAddress}</p>
+          {order.deliveryAddress === ONE_CLICK_ADDRESS ? (
+            <p className="text-muted-foreground">Cumpărare cu un click. Adresa nu a fost cerută.</p>
+          ) : (
+            <p className="whitespace-pre-wrap">{order.deliveryAddress}</p>
+          )}
           {order.customer ? (
             <p>
               Registru:{" "}
@@ -91,80 +134,49 @@ export default async function ComandaPage({ params }: PageProps) {
         </div>
       </section>
 
-      {order.lines.length > 0 ? (
-        <section className="space-y-4">
-          <h2 className="text-lg font-medium tracking-tight">Produse</h2>
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {order.lines.map((line) => {
-              const lineSummary = readOrderSummary(line.summaryJson);
-              const imageSrc =
-                line.mirrorModelId && line.imageId
-                  ? mediaPath(line.mirrorModelId, line.imageId, "thumb")
-                  : null;
-              return (
-                <li key={line.id} className="grid gap-4 p-4 text-sm sm:grid-cols-[4rem_minmax(0,1fr)]">
-                  {imageSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imageSrc} alt="" className="h-16 w-16 rounded-md object-cover" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-md bg-muted" />
-                  )}
-                  <div className="min-w-0 space-y-2">
-                    <p className="font-medium">
-                      {line.modelName} · {line.modelCode}
-                    </p>
-                    {lineSummary ? (
-                      <p className="text-muted-foreground">
-                        {lineSummary.shapeLabel} · {lineSummary.widthMm} × {lineSummary.heightMm} mm ·{" "}
-                        {lineSummary.glassTypeLabel} · {lineSummary.lightingLabel}
-                        {lineSummary.features.length > 0 ? ` · ${lineSummary.features.join(" · ")}` : ""}
-                      </p>
-                    ) : null}
-                    <p>
-                      {line.quantity} × {formatMdl(Number(line.unitPrice))} ={" "}
-                      {formatMdl(Number(line.lineTotal))}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : (
       <section className="space-y-3">
-        <h2 className="text-lg font-medium tracking-tight">Configurație</h2>
-        {summary ? (
-          <dl className="max-w-3xl divide-y divide-border border-y border-border text-sm">
-            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr]">
-              <dt className="text-muted-foreground">Formă</dt>
-              <dd>{summary.shapeLabel}</dd>
-            </div>
-            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr]">
-              <dt className="text-muted-foreground">Dimensiuni</dt>
-              <dd>
-                {summary.widthMm} × {summary.heightMm} mm
-              </dd>
-            </div>
-            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr]">
-              <dt className="text-muted-foreground">Sticlă</dt>
-              <dd>{summary.glassTypeLabel}</dd>
-            </div>
-            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr]">
-              <dt className="text-muted-foreground">Iluminare</dt>
-              <dd>{summary.lightingLabel}</dd>
-            </div>
-            {summary.features.map((feature) => (
-              <div key={feature} className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr]">
-                <dt className="text-muted-foreground">Opțiune</dt>
-                <dd>{feature}</dd>
+        <h2 className="text-lg font-medium tracking-tight">Oglinzi</h2>
+        <ul className="divide-y divide-border rounded-xl border border-border">
+          {mirrors.map((mirror) => (
+            <li key={mirror.key} className="flex flex-wrap items-baseline justify-between gap-3 p-4 text-sm">
+              <div className="min-w-0">
+                <Link
+                  href={`/admin/comenzi/${order.id}/oglinzi/${mirror.key}`}
+                  className="font-medium underline-offset-2 hover:underline"
+                >
+                  {mirror.extension}
+                </Link>
+                <p>{mirror.name}</p>
+                <div>
+                  <Link
+                    href={`/admin/comenzi/${order.id}/oglinzi/${mirror.key}`}
+                    className="text-sm underline-offset-2 hover:underline"
+                  >
+                    Editează
+                  </Link>
+                </div>
+                <p className="text-muted-foreground">
+                  {mirror.code}
+                  {mirror.summary
+                    ? ` · ${mirror.summary.widthMm} × ${mirror.summary.heightMm} mm · ${mirror.summary.glassTypeLabel} · ${mirror.summary.lightingLabel}`
+                    : ""}
+                </p>
               </div>
-            ))}
-          </dl>
-        ) : (
-          <p className="text-sm text-muted-foreground">Configurația salvată nu poate fi afișată.</p>
-        )}
+              <div className="flex flex-col items-end gap-2">
+                <p>
+                  {mirror.quantity} × {formatMdl(mirror.unitPrice)} = {formatMdl(mirror.lineTotal)}
+                </p>
+                <MirrorStatusSelect orderId={order.id} mirrorKey={mirror.key} status={mirror.mirrorStatus} />
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
-      )}
+
+      <section id="oglinda-noua" className="space-y-3 rounded-xl border border-border p-4">
+        <h2 className="text-lg font-medium tracking-tight">Adaugă oglindă</h2>
+        <AddOrderMirror orderId={order.id} models={models} />
+      </section>
 
       <OrderManage
         orderId={order.id}

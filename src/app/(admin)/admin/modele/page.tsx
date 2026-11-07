@@ -77,12 +77,20 @@ export default async function ModelePage({ searchParams }: PageProps) {
         description="Catalog comercial de modele predefinite. Prețurile vin din motorul central — fără preț fix manual. Activ ≠ publicat pe site."
         actions={
           canManage ? (
-            <Link
-              href="/admin/modele/nou"
-              className="inline-flex h-8 items-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-            >
-              Adaugă model
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/admin/configurator/structura"
+                className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-sm hover:bg-muted"
+              >
+                Structura elementelor
+              </Link>
+              <Link
+                href="/admin/modele/nou"
+                className="inline-flex h-8 items-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              >
+                Adaugă model
+              </Link>
+            </div>
           ) : null
         }
       />

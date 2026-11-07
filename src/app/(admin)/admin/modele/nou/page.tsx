@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { requireStaffSession } from "@/lib/auth/guards";
 import { canManageCatalog } from "@/modules/catalog/permissions";
 import { listMirrorCategories } from "@/modules/catalog/queries";
+import { getConfiguratorLayout } from "@/modules/configurator/layout-store";
 import { listSavedConfigurations } from "@/modules/offers/queries";
 import { redirect } from "next/navigation";
 
@@ -16,7 +17,7 @@ export default async function ModelNouPage() {
     redirect("/admin/modele");
   }
 
-  const [categories, configs] = await Promise.all([
+  const [categories, configs, sections] = await Promise.all([
     listMirrorCategories({ activeOnly: true }),
     listSavedConfigurations({
       q: "",
@@ -24,6 +25,7 @@ export default async function ModelNouPage() {
       sort: "updatedAt",
       order: "desc",
     }),
+    getConfiguratorLayout(),
   ]);
 
   if (categories.length === 0) {
@@ -47,6 +49,7 @@ export default async function ModelNouPage() {
           name: config.name,
         }))}
         canEditTariffs={session.user.role === "ADMIN"}
+        sections={sections}
       />
     </div>
   );

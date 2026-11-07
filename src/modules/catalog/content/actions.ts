@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { saveModelContent } from "@/modules/catalog/content/service";
+import { readProductTranslation } from "@/modules/catalog/content/translation";
 import { canManageModelContent } from "@/modules/catalog/permissions";
 
 export type ContentActionResult =
@@ -35,6 +36,7 @@ export async function saveModelContentAction(raw: unknown): Promise<ContentActio
     seoDescription: string;
     primaryImageId: string | null;
     primaryAltText: string | null;
+    russian?: unknown;
   }>;
   if (!body.modelId) {
     return { ok: false, message: "Model invalid." };
@@ -56,6 +58,7 @@ export async function saveModelContentAction(raw: unknown): Promise<ContentActio
     seoDescription: String(body.seoDescription ?? ""),
     primaryImageId: body.primaryImageId ?? null,
     primaryAltText: body.primaryAltText === undefined ? null : String(body.primaryAltText),
+    russian: readProductTranslation({ ru: body.russian }),
   });
   if (!saved.ok) {
     return saved;

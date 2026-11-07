@@ -2,11 +2,18 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
-import { CommercialSections } from "@/components/configurator/commercial-sections";
+import {
+  CommercialSections,
+  type CommercialPart,
+} from "@/components/configurator/commercial-sections";
 import { ConfigToolbar } from "@/components/configurator/config-toolbar";
 import { LightingSection } from "@/components/configurator/lighting-section";
-import { ProcessingSections } from "@/components/configurator/processing-sections";
+import {
+  ProcessingSections,
+  type ProcessingPart,
+} from "@/components/configurator/processing-sections";
 import { SummaryPanel } from "@/components/configurator/summary-panel";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { runConfiguratorQuoteAction } from "@/modules/configurator/actions";
@@ -27,6 +34,12 @@ import {
   defaultProcessingConfig,
   type ProcessingConfig,
 } from "@/modules/configurator/processing";
+import {
+  defaultConfiguratorLayout,
+  visibleConfiguratorItems,
+  type ConfiguratorSectionId,
+  type ConfiguratorSectionSetting,
+} from "@/modules/configurator/layout";
 import {
   CONFIGURATOR_SHAPES,
   getShapeById,
@@ -84,12 +97,34 @@ function parseNonNeg(value: string): number | null {
   return n;
 }
 
+const PROCESSING_PARTS = new Set<ConfiguratorSectionId>([
+  "processing",
+  "defog",
+  "frames",
+  "cutouts",
+  "accessories",
+  "branding",
+]);
+
+const COMMERCIAL_PARTS = new Set<ConfiguratorSectionId>([
+  "labor",
+  "packaging",
+  "delivery",
+  "install",
+  "price",
+]);
+
 type ConfiguratorWorkspaceProps = {
   canEditTariffs?: boolean;
+  sections?: ConfiguratorSectionSetting[];
   initialConfigId?: string | null;
   initialConfigCode?: string | null;
   initialConfigName?: string | null;
   initialState?: ConfiguratorState | null;
+  /** When set, parameters are saved here instead of a named configuration. */
+  onSaveParameters?: (
+    payload: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; message: string }>;
 };
 
 function formFromState(state: ConfiguratorState): FormState {
@@ -110,10 +145,12 @@ function formFromState(state: ConfiguratorState): FormState {
 
 export function ConfiguratorWorkspace({
   canEditTariffs = false,
+  sections = defaultConfiguratorLayout(),
   initialConfigId = null,
   initialConfigCode = null,
   initialConfigName = null,
   initialState = null,
+  onSaveParameters,
 }: ConfiguratorWorkspaceProps) {
   const [form, setForm] = useState<FormState>(
     initialState ? formFromState(initialState) : INITIAL,
@@ -126,6 +163,8 @@ export function ConfiguratorWorkspace({
     initialConfigName ?? "Configurație nouă",
   );
   const [dirty, setDirty] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -253,31 +292,26 @@ export function ConfiguratorWorkspace({
     };
   }
 
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-      <div className="space-y-3">
-        <ConfigToolbar
-          configId={configId}
-          configCode={configCode}
-          configName={configName}
-          onNameChange={(name) => {
-            setDirty(true);
-            setConfigName(name);
-          }}
-          buildPayload={buildPersistPayload}
-          dirty={dirty}
-          onSaved={(id, code, name) => {
-            setConfigId(id);
-            setConfigCode(code);
-            setConfigName(name);
-            setDirty(false);
-          }}
-        />
+  const visibleSections = sections.filter((section) => section.enabled);
 
-        <section className="space-y-3 rounded-xl border border-border bg-card p-3">
-          <h2 className="text-sm font-semibold text-foreground">Configurare</h2>
-
-          <div className="grid gap-2">
+  function category(section: ConfiguratorSectionSetting) {
+    const id = section.id;
+    if (id === "geometry") {
+      const order = visibleConfiguratorItems(section.items, ["shape", "dimensions", "glass"]);
+      const place = (itemId: string) => {
+        const index = order.indexOf(itemId);
+        return index < 0 ? null : index;
+      };
+      if (order.length === 0) {
+        return null;
+      }
+      return (
+        <section key={id} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
+          <h2 className="text-sm font-semibold text-foreground" style={{ order: -1 }}>
+            Configurare
+          </h2>
+          {place("shape") != null ? (
+          <div className="grid gap-2" style={{ order: place("shape")! }}>
             <Label htmlFor="shape">Formă oglindă</Label>
             <select
               id="shape"
@@ -292,13 +326,12 @@ export function ConfiguratorWorkspace({
               ))}
             </select>
             {selectedShape ? (
-              <p className="text-xs text-muted-foreground">
-                {selectedShape.description}
-              </p>
+              <p className="text-xs text-muted-foreground">{selectedShape.description}</p>
             ) : null}
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
+          ) : null}
+          {place("dimensions") != null ? (
+          <div className="grid gap-3 sm:grid-cols-2" style={{ order: place("dimensions")! }}>
             <div className="grid gap-2">
               <Label htmlFor="width">Lățime (mm)</Label>
               <Input
@@ -318,8 +351,9 @@ export function ConfiguratorWorkspace({
               />
             </div>
           </div>
-
-          <div className="grid gap-2">
+          ) : null}
+          {place("glass") != null ? (
+          <div className="grid gap-2" style={{ order: place("glass")! }}>
             <Label htmlFor="glass">Tip sticlă</Label>
             <select
               id="glass"
@@ -335,9 +369,12 @@ export function ConfiguratorWorkspace({
               ))}
             </select>
           </div>
-
-          {selectedShape?.edgeMode === "manual" ? (
-            <fieldset className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
+          ) : null}
+          {place("shape") != null && selectedShape?.edgeMode === "manual" ? (
+            <fieldset
+              className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2"
+              style={{ order: place("shape")! }}
+            >
               <legend className="px-1 text-xs text-muted-foreground">
                 Adaosuri manuale pe laturi (mm)
               </legend>
@@ -362,29 +399,112 @@ export function ConfiguratorWorkspace({
             </fieldset>
           ) : null}
         </section>
-
+      );
+    }
+    if (id === "lighting") {
+      return (
         <LightingSection
+          key={id}
           lighting={form.lighting}
           widthMm={parsed.widthMm}
           heightMm={parsed.heightMm}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
           shapeId={selectedShape?.id}
+          items={section.items}
           onChange={(lighting) => update("lighting", lighting)}
         />
-
+      );
+    }
+    if (PROCESSING_PARTS.has(id)) {
+      return (
         <ProcessingSections
+          key={id}
+          only={id as ProcessingPart}
+          items={section.items}
           processing={form.processing}
           widthMm={parsed.widthMm}
           heightMm={parsed.heightMm}
           shapeIsRectangular={selectedShape?.engineShape === "RECTANGLE"}
+          shapeId={selectedShape?.id}
           onChange={(processing) => update("processing", processing)}
         />
-
+      );
+    }
+    if (COMMERCIAL_PARTS.has(id)) {
+      return (
         <CommercialSections
+          key={id}
+          only={id as CommercialPart}
+          items={section.items}
           commercial={form.commercial}
           canEditTariffs={canEditTariffs}
           onChange={(commercial) => update("commercial", commercial)}
         />
+      );
+    }
+    return null;
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+      <div className="space-y-3">
+        {onSaveParameters ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="text-sm">
+              <p className="font-medium">Parametrii oglinzii</p>
+              {saveError ? <p className="text-destructive">{saveError}</p> : null}
+              {saveMessage ? <p className="text-green-700">{saveMessage}</p> : null}
+            </div>
+            <Button
+              type="button"
+              disabled={!parsed.ok || pending}
+              onClick={() => {
+                if (!parsed.ok) {
+                  return;
+                }
+                setSaveError(null);
+                setSaveMessage(null);
+                const payload = buildPersistPayload();
+                startTransition(async () => {
+                  const result = await onSaveParameters(payload);
+                  if (!result.ok) {
+                    setSaveError(result.message);
+                    return;
+                  }
+                  setDirty(false);
+                  setSaveMessage(result.message);
+                });
+              }}
+            >
+              Salvează parametrii
+            </Button>
+          </div>
+        ) : (
+          <ConfigToolbar
+            configId={configId}
+            configCode={configCode}
+            configName={configName}
+            onNameChange={(name) => {
+              setDirty(true);
+              setConfigName(name);
+            }}
+            buildPayload={buildPersistPayload}
+            dirty={dirty}
+            onSaved={(id, code, name) => {
+              setConfigId(id);
+              setConfigCode(code);
+              setConfigName(name);
+              setDirty(false);
+            }}
+          />
+        )}
+
+        {visibleSections.map((section) => category(section))}
+        {visibleSections.length === 0 ? (
+          <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+            Nicio categorie nu este inclusă. Le poți activa din structura configuratorului.
+          </p>
+        ) : null}
       </div>
 
       <SummaryPanel

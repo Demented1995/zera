@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
+import { getShopLocale } from "@/modules/shop/locale";
 import { publicSiteUrl } from "@/modules/shop/site";
 
 import "./globals.css";
@@ -25,14 +26,15 @@ export const metadata: Metadata = {
   description: "ZERA — oglinzi personalizate, cu preț în MDL.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getShopLocale();
   return (
     <html
-      lang="ro"
+      lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">

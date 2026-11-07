@@ -1,8 +1,16 @@
 import Link from "next/link";
 
 import type { PublicCompany } from "@/modules/shop/catalog";
+import type { ShopLocale } from "@/modules/shop/locale";
+import { t } from "@/modules/shop/messages";
 
-export function ShopFooter({ company }: { company: PublicCompany }) {
+export function ShopFooter({
+  company,
+  locale = "ro",
+}: {
+  company: PublicCompany;
+  locale?: ShopLocale;
+}) {
   const lines = [
     company.legalName,
     company.taxId ? `IDNO ${company.taxId}` : null,
@@ -17,7 +25,7 @@ export function ShopFooter({ company }: { company: PublicCompany }) {
         <div className="space-y-3">
           <p className="text-sm tracking-[0.28em] uppercase">ZERA</p>
           <Link href="/catalog" className="text-sm underline-offset-4 hover:underline">
-            Catalog
+            {t(locale, "catalog")}
           </Link>
         </div>
         {lines.length > 0 ? (

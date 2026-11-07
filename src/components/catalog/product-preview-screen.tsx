@@ -9,7 +9,7 @@ import type {
   PreviewActionResult,
   PreviewPatch,
 } from "@/modules/catalog/preview/types";
-import type { PlaceOrderInput, PlaceOrderResult } from "@/modules/orders/public";
+import type { OneClickOrderInput, PlaceOrderInput, PlaceOrderResult } from "@/modules/orders/public";
 import type { CartDraft } from "@/modules/shop/cart";
 import { selectedCartLines } from "@/modules/shop/cart-summary";
 
@@ -29,9 +29,16 @@ type Props = {
       request: CustomerPreviewPayload["selection"];
     },
   ) => Promise<PlaceOrderResult>;
+  placeOneClick?: (
+    input: OneClickOrderInput & {
+      modelId: string;
+      request: CustomerPreviewPayload["selection"];
+    },
+  ) => Promise<PlaceOrderResult>;
   onAddToCart?: (draft: CartDraft) => void;
   cartNote?: string | null;
   orderContextNote?: string;
+  locale?: import("@/modules/shop/locale").ShopLocale;
 };
 
 export function ProductPreviewScreen({
@@ -40,9 +47,11 @@ export function ProductPreviewScreen({
   initial,
   quoteAction,
   placeOrder,
+  placeOneClick,
   onAddToCart,
   cartNote,
   orderContextNote,
+  locale = "ro",
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -85,6 +94,7 @@ export function ProductPreviewScreen({
         onPatch={onPatch}
         cartNote={cartNote}
         orderContextNote={orderContextNote}
+        locale={locale}
         onAddToCart={
           onAddToCart
             ? () => {
@@ -104,6 +114,18 @@ export function ProductPreviewScreen({
                   unitPrice: customer.price.retailPrice,
                 });
               }
+            : undefined
+        }
+        onOneClick={
+          placeOneClick
+            ? (input) =>
+                placeOneClick({
+                  modelId,
+                  request: customer.selection,
+                  customerName: input.customerName,
+                  customerPhone: input.customerPhone,
+                  deliveryAddress: input.deliveryAddress,
+                })
             : undefined
         }
         onPlaceOrder={

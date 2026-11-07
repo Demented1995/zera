@@ -12,11 +12,21 @@ import {
   type LaborOpId,
   type PackagingTypeId,
 } from "@/modules/configurator/commercial";
+import {
+  visibleConfiguratorItems,
+  type ConfiguratorItemSetting,
+} from "@/modules/configurator/layout";
+
+export type CommercialPart = "labor" | "packaging" | "delivery" | "install" | "price";
 
 type CommercialSectionsProps = {
   commercial: CommercialConfig;
   canEditTariffs: boolean;
   onChange: (next: CommercialConfig) => void;
+  /** When set, only that category is rendered. */
+  only?: CommercialPart;
+  /** Saved elements. Missing means every element stays visible, in the default order. */
+  items?: ConfiguratorItemSetting[];
 };
 
 function selectClass() {
@@ -27,6 +37,8 @@ export function CommercialSections({
   commercial,
   canEditTariffs,
   onChange,
+  only,
+  items,
 }: CommercialSectionsProps) {
   function patch(partial: Partial<CommercialConfig>) {
     onChange({ ...commercial, ...partial });
@@ -40,8 +52,15 @@ export function CommercialSections({
     });
   }
 
+  const show = (part: CommercialPart) => !only || only === part;
+  const laborOrder = visibleConfiguratorItems(
+    items,
+    LABOR_OPS.map((item) => item.id),
+  );
+
   return (
-    <div className="space-y-3">
+    <>
+      {show("labor") && laborOrder.length > 0 ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold text-foreground">Manoperă</h2>
         {!canEditTariffs ? (
@@ -51,7 +70,11 @@ export function CommercialSections({
         ) : null}
 
         <div className="space-y-2">
-          {commercial.laborOps.map((op) => {
+          {laborOrder.map((id) => {
+            const op = commercial.laborOps.find((item) => item.id === id);
+            if (!op) {
+              return null;
+            }
             const meta = LABOR_OPS.find((item) => item.id === op.id)!;
             return (
               <div
@@ -124,7 +147,9 @@ export function CommercialSections({
           })}
         </div>
       </section>
+      ) : null}
 
+      {show("packaging") ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Ambalare</h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -204,7 +229,9 @@ export function CommercialSections({
           ) : null}
         </div>
       </section>
+      ) : null}
 
+      {show("delivery") ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Livrare</h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -296,7 +323,9 @@ export function CommercialSections({
           ) : null}
         </div>
       </section>
+      ) : null}
 
+      {show("install") ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Montaj</h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -410,7 +439,9 @@ export function CommercialSections({
           ) : null}
         </div>
       </section>
+      ) : null}
 
+      {show("price") ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Nivel preț ofertă</h2>
         <div className="flex flex-wrap gap-4 text-sm">
@@ -432,6 +463,7 @@ export function CommercialSections({
           </label>
         </div>
       </section>
-    </div>
+      ) : null}
+    </>
   );
 }

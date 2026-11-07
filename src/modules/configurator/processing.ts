@@ -1,4 +1,6 @@
 import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
+import { ROUND_LED_PI } from "@/modules/pricing/engine/led-length";
+import { roundMoney } from "@/modules/pricing/engine/money";
 import { MATERIAL_SEED_KEYS } from "@/modules/pricing/engine";
 import type { DetailedComponentLine } from "@/modules/pricing/engine/types";
 
@@ -288,6 +290,29 @@ export function defaultProcessingConfig(): ProcessingConfig {
   };
 }
 
+/** Frame length in meters. Round uses diameter × 3.14. Rectangle uses the perimeter. */
+export function frameLengthM(
+  widthMm: number,
+  heightMm: number,
+  shapeIsRectangular: boolean,
+  shapeId?: string,
+): { meters: number; note: string } | null {
+  if (shapeId === "round") {
+    if (!(widthMm > 0)) {
+      return null;
+    }
+    return {
+      meters: roundMoney((widthMm * ROUND_LED_PI) / 1000),
+      note: "Lungime = diametru × 3,14.",
+    };
+  }
+  const perimeter = mirrorPerimeterM(widthMm, heightMm, shapeIsRectangular);
+  if (perimeter == null) {
+    return null;
+  }
+  return { meters: perimeter, note: "Lungime = perimetrul oglinzii." };
+}
+
 /** Rectangular outline in meters. Special shapes have no confirmed perimeter. */
 export function mirrorPerimeterM(
   widthMm: number,
@@ -332,6 +357,7 @@ export function resolveDecorativeSandblastAreaM2(
 export function buildProcessingDetailedComponents(options: {
   processing: ProcessingConfig;
   shapeIsRectangular: boolean;
+  shapeId?: string;
   widthMm: number;
   heightMm: number;
   glassAreaM2: number | null;
@@ -341,7 +367,7 @@ export function buildProcessingDetailedComponents(options: {
   decorativeSandblastAreaM2: number;
   blockers: string[];
 } {
-  const { processing, shapeIsRectangular, widthMm, heightMm, glassAreaM2 } =
+  const { processing, shapeIsRectangular, shapeId, widthMm, heightMm, glassAreaM2 } =
     options;
   const detailedComponents: DetailedComponentLine[] = [];
   const blockers: string[] = [];
@@ -470,22 +496,13 @@ export function buildProcessingDetailedComponents(options: {
   // --- Frames ---
   if (processing.frameType !== "none") {
     const frame = FRAME_TYPES.find((item) => item.id === processing.frameType)!;
+    const outline = frameLengthM(widthMm, heightMm, shapeIsRectangular, shapeId);
     let qty = processing.frameConsumptionQty;
-    let note =
-      "Consum explicit — fără cost inventat. Asociați material + regulă în admin.";
+    let note = "Consum scris în metri.";
 
-    if (
-      frame.rectangularPerimeterAuto &&
-      shapeIsRectangular &&
-      frame.materialSeedKey
-    ) {
-      // Only when admin has confirmed both association and auto rule.
-      qty = (2 * (widthMm + heightMm)) / 1000;
-      note = "Perimetru auto (regulă admin confirmată).";
-    } else if (frame.rectangularPerimeterAuto && !shapeIsRectangular) {
-      blockers.push(
-        `Ramă ${frame.label}: formă specială — consum explicit sau geometrie validată.`,
-      );
+    if (!(qty > 0) && outline != null) {
+      qty = outline.meters;
+      note = outline.note;
     }
 
     detailedComponents.push({
@@ -501,8 +518,8 @@ export function buildProcessingDetailedComponents(options: {
     if (!frame.materialSeedKey) {
       blockers.push(`Ramă ${frame.label}: tarif / material lipsă`);
     }
-    if (qty <= 0) {
-      blockers.push(`Ramă ${frame.label}: consum (cantitate) de confirmat`);
+    if (!(qty > 0)) {
+      blockers.push(`Ramă ${frame.label}: scrieți consumul în metri.`);
     }
   }
 

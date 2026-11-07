@@ -5,23 +5,27 @@ import { useState } from "react";
 import { ProductPreviewScreen } from "@/components/catalog/product-preview-screen";
 import { useCart } from "@/components/shop/cart-provider";
 import type { CustomerPreviewPayload } from "@/modules/catalog/preview/types";
-import { quotePublicProductAction } from "@/modules/shop/actions";
+import { placeOneClickOrderAction, quotePublicProductAction } from "@/modules/shop/actions";
+import type { ShopLocale } from "@/modules/shop/locale";
+import { t } from "@/modules/shop/messages";
 
-const CART_NOTE: Record<string, string> = {
-  added: "Adăugat în coș.",
-  updated: "Cantitatea din coș a fost actualizată.",
-  full: "Coșul poate avea cel mult 8 configurații.",
-  max: "Cantitatea maximă pentru această configurație este 20.",
-};
+const CART_NOTE = {
+  added: "added",
+  updated: "updated",
+  full: "cartFull",
+  max: "cartMax",
+} as const;
 
 export function ShopProduct({
   modelId,
   slug,
   initial,
+  locale = "ro",
 }: {
   modelId: string;
   slug: string;
   initial: CustomerPreviewPayload;
+  locale?: ShopLocale;
 }) {
   const cart = useCart();
   const [note, setNote] = useState<string | null>(null);
@@ -32,10 +36,13 @@ export function ShopProduct({
       slug={slug}
       initial={initial}
       quoteAction={quotePublicProductAction}
+      placeOneClick={placeOneClickOrderAction}
       cartNote={note}
+      locale={locale}
       onAddToCart={(draft) => {
         const result = cart.add(draft);
-        setNote(CART_NOTE[result] ?? null);
+        const key = CART_NOTE[result as keyof typeof CART_NOTE];
+        setNote(key ? t(locale, key) : null);
       }}
     />
   );

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { saveModelContentAction } from "@/modules/catalog/content/actions";
+import type { ProductTranslation } from "@/modules/catalog/content/translation";
 import { slugifyModelName } from "@/modules/catalog/slug";
 import type { DescriptiveSpec, PublicSpec } from "@/modules/catalog/content/specs";
 
@@ -34,6 +35,7 @@ type Props = {
     seoDescription: string;
     primaryImageId: string | null;
     primaryAltText: string;
+    russian: ProductTranslation;
   };
   specs: PublicSpec[];
 };
@@ -52,6 +54,7 @@ export function ModelContentForm({ modelId, canManage, code, statusLabel, initia
   const [seoTitle, setSeoTitle] = useState(initial.seoTitle);
   const [seoDescription, setSeoDescription] = useState(initial.seoDescription);
   const [primaryAltText, setPrimaryAltText] = useState(initial.primaryAltText);
+  const [russian, setRussian] = useState<ProductTranslation>(initial.russian);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -129,6 +132,7 @@ export function ModelContentForm({ modelId, canManage, code, statusLabel, initia
       seoDescription,
       primaryImageId: initial.primaryImageId,
       primaryAltText,
+      russian,
     });
     setPending(false);
     if (!result.ok) {
@@ -344,6 +348,202 @@ export function ModelContentForm({ modelId, canManage, code, statusLabel, initia
             setDeliverySource(value);
           }}
         />
+      </Section>
+
+      <Section title="Text în rusă">
+        <p className="text-sm text-muted-foreground">
+          Câmpurile goale lasă pe site textul în română. Slug-ul rămâne același.
+        </p>
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="ru-name">Denumire</Label>
+            <Input
+              id="ru-name"
+              value={russian.name}
+              disabled={!canManage}
+              onChange={(event) => {
+                mark();
+                setRussian((current) => ({ ...current, name: event.target.value }));
+              }}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ru-short">Descriere scurtă</Label>
+            <Textarea
+              id="ru-short"
+              value={russian.shortDescription}
+              disabled={!canManage}
+              rows={3}
+              maxLength={300}
+              onChange={(event) => {
+                mark();
+                setRussian((current) => ({ ...current, shortDescription: event.target.value }));
+              }}
+            />
+          </div>
+        </div>
+        <RichTextField
+          id="ru-description"
+          label="Descriere completă"
+          value={russian.descriptionSource}
+          disabled={!canManage}
+          onChange={(value) => {
+            mark();
+            setRussian((current) => ({ ...current, descriptionSource: value }));
+          }}
+        />
+        <RichTextField
+          id="ru-highlights"
+          label="Avantaje principale"
+          value={russian.highlightsSource}
+          disabled={!canManage}
+          onChange={(value) => {
+            mark();
+            setRussian((current) => ({ ...current, highlightsSource: value }));
+          }}
+        />
+        <RichTextField
+          id="ru-care"
+          label="Întreținere"
+          value={russian.careSource}
+          disabled={!canManage}
+          onChange={(value) => {
+            mark();
+            setRussian((current) => ({ ...current, careSource: value }));
+          }}
+        />
+        <RichTextField
+          id="ru-warranty"
+          label="Garanție"
+          value={russian.warrantySource}
+          disabled={!canManage}
+          onChange={(value) => {
+            mark();
+            setRussian((current) => ({ ...current, warrantySource: value }));
+          }}
+        />
+        <RichTextField
+          id="ru-delivery"
+          label="Producție și livrare"
+          value={russian.deliverySource}
+          disabled={!canManage}
+          onChange={(value) => {
+            mark();
+            setRussian((current) => ({ ...current, deliverySource: value }));
+          }}
+        />
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Specificații descriptive</h3>
+          {russian.extraSpecs.map((spec, index) => (
+            <div key={spec.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <Input
+                aria-label={`Etichetă rusă ${index + 1}`}
+                value={spec.label}
+                disabled={!canManage}
+                onChange={(event) => {
+                  mark();
+                  const label = event.target.value;
+                  setRussian((current) => ({
+                    ...current,
+                    extraSpecs: current.extraSpecs.map((item) =>
+                      item.id === spec.id ? { ...item, label } : item,
+                    ),
+                  }));
+                }}
+              />
+              <Input
+                aria-label={`Valoare rusă ${index + 1}`}
+                value={spec.value}
+                disabled={!canManage}
+                onChange={(event) => {
+                  mark();
+                  const specValue = event.target.value;
+                  setRussian((current) => ({
+                    ...current,
+                    extraSpecs: current.extraSpecs.map((item) =>
+                      item.id === spec.id ? { ...item, value: specValue } : item,
+                    ),
+                  }));
+                }}
+              />
+              {canManage ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    mark();
+                    setRussian((current) => ({
+                      ...current,
+                      extraSpecs: current.extraSpecs.filter((item) => item.id !== spec.id),
+                    }));
+                  }}
+                >
+                  Elimină
+                </Button>
+              ) : null}
+            </div>
+          ))}
+          {canManage ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                mark();
+                setRussian((current) => ({
+                  ...current,
+                  extraSpecs: [
+                    ...current.extraSpecs,
+                    { id: `ru-extra-${Date.now()}`, label: "", value: "" },
+                  ],
+                }));
+              }}
+            >
+              Adaugă specificație
+            </Button>
+          ) : null}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="ru-seo-title">SEO title</Label>
+            <Input
+              id="ru-seo-title"
+              value={russian.seoTitle}
+              disabled={!canManage}
+              maxLength={200}
+              onChange={(event) => {
+                mark();
+                setRussian((current) => ({ ...current, seoTitle: event.target.value }));
+              }}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ru-seo-description">Meta description</Label>
+            <Textarea
+              id="ru-seo-description"
+              value={russian.seoDescription}
+              disabled={!canManage}
+              rows={3}
+              maxLength={500}
+              onChange={(event) => {
+                mark();
+                setRussian((current) => ({ ...current, seoDescription: event.target.value }));
+              }}
+            />
+          </div>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor="ru-alt">Text alternativ pentru imaginea principală</Label>
+            <Input
+              id="ru-alt"
+              value={russian.primaryAltText}
+              disabled={!canManage}
+              maxLength={300}
+              onChange={(event) => {
+                mark();
+                setRussian((current) => ({ ...current, primaryAltText: event.target.value }));
+              }}
+            />
+          </div>
+        </div>
       </Section>
 
       <Section title="SEO">

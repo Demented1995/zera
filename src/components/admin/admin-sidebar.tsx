@@ -11,12 +11,14 @@ import { cn } from "@/lib/utils";
 
 type AdminSidebarProps = {
   items: AdminNavItem[];
+  badges?: Record<string, number>;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 };
 
 export function AdminSidebar({
   items,
+  badges,
   collapsed,
   onToggleCollapsed,
 }: AdminSidebarProps) {
@@ -78,7 +80,7 @@ export function AdminSidebar({
       <Separator />
 
       <div className="flex-1 overflow-y-auto py-3">
-        <AdminNav items={items} collapsed={collapsed} />
+        <AdminNav items={items} badges={badges} collapsed={collapsed} />
       </div>
     </aside>
   );

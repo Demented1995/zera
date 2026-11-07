@@ -160,6 +160,7 @@ export function buildCalculationInput(options: {
   const processingBuilt = buildProcessingDetailedComponents({
     processing: state.processing,
     shapeIsRectangular,
+    shapeId: shape.id,
     widthMm: state.widthMm,
     heightMm: state.heightMm,
     glassAreaM2: glassArea.areaM2,
@@ -315,6 +316,7 @@ export function quoteConfigurator(options: {
   const processingBuilt = buildProcessingDetailedComponents({
     processing,
     shapeIsRectangular,
+    shapeId: shape.id,
     widthMm: state.widthMm,
     heightMm: state.heightMm,
     glassAreaM2: glassPreview.areaM2,

@@ -4,10 +4,16 @@ import { revalidatePath } from "next/cache";
 
 import { quoteCustomerConfigSchema } from "@/modules/catalog/rules/schemas";
 import type { PreviewActionResult } from "@/modules/catalog/preview/types";
-import { parsePlaceOrder } from "@/modules/orders/schemas";
+import { parseOneClickOrder, parsePlaceOrder } from "@/modules/orders/schemas";
 import type { PlaceOrderResult } from "@/modules/orders/public";
 import { parseCartCheckout } from "@/modules/shop/checkout";
-import { placeCartOrder, placePublicOrder, quotePublicProduct, type CartOrderResult } from "@/modules/shop/service";
+import {
+  placeCartOrder,
+  placeOneClickOrder,
+  placePublicOrder,
+  quotePublicProduct,
+  type CartOrderResult,
+} from "@/modules/shop/service";
 
 export async function quotePublicProductAction(raw: unknown): Promise<PreviewActionResult> {
   const parsed = quoteCustomerConfigSchema.safeParse(raw);
@@ -27,6 +33,20 @@ export async function placePublicOrderAction(raw: unknown): Promise<PlaceOrderRe
     return saved;
   }
   revalidatePath("/admin/comenzi");
+  return { ok: true, number: saved.number };
+}
+
+export async function placeOneClickOrderAction(raw: unknown): Promise<PlaceOrderResult> {
+  const parsed = parseOneClickOrder(raw);
+  if (!parsed.ok) {
+    return parsed;
+  }
+  const saved = await placeOneClickOrder(parsed.data);
+  if (!saved.ok) {
+    return saved;
+  }
+  revalidatePath("/admin/comenzi");
+  revalidatePath(`/admin/comenzi/${saved.id}`);
   return { ok: true, number: saved.number };
 }
 

@@ -3,6 +3,10 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  visibleConfiguratorItems,
+  type ConfiguratorItemSetting,
+} from "@/modules/configurator/layout";
+import {
   BRANDING_OPTIONS,
   CUTOUT_TYPES,
   DEFOG_CONTROLS,
@@ -13,18 +17,32 @@ import {
   PRODUCT_ACCESSORIES,
   SANDBLAST_FINISHES,
   computeSandblastBandsAreaM2,
+  frameLengthM,
   mirrorPerimeterM,
   type CutoutTypeId,
   type ProcessingConfig,
   type SandblastFinishId,
 } from "@/modules/configurator/processing";
 
+export type ProcessingPart =
+  | "processing"
+  | "defog"
+  | "frames"
+  | "cutouts"
+  | "accessories"
+  | "branding";
+
 type ProcessingSectionsProps = {
   processing: ProcessingConfig;
   widthMm: number | null;
   heightMm: number | null;
   shapeIsRectangular: boolean;
+  shapeId?: string;
   onChange: (next: ProcessingConfig) => void;
+  /** When set, only that category is rendered. */
+  only?: ProcessingPart;
+  /** Saved elements. Missing means every element stays visible, in the default order. */
+  items?: ConfiguratorItemSetting[];
 };
 
 function selectClass() {
@@ -36,7 +54,10 @@ export function ProcessingSections({
   widthMm,
   heightMm,
   shapeIsRectangular,
+  shapeId,
   onChange,
+  only,
+  items,
 }: ProcessingSectionsProps) {
   function patch(partial: Partial<ProcessingConfig>) {
     onChange({ ...processing, ...partial });
@@ -53,12 +74,42 @@ export function ProcessingSections({
     widthMm != null && heightMm != null
       ? mirrorPerimeterM(widthMm, heightMm, shapeIsRectangular)
       : null;
+  const frameOutline =
+    widthMm != null && heightMm != null
+      ? frameLengthM(widthMm, heightMm, shapeIsRectangular, shapeId)
+      : null;
+
+  const show = (part: ProcessingPart) => !only || only === part;
+  const processingOrder = visibleConfiguratorItems(items, [
+    "sandblast",
+    "facet",
+    "engraving",
+  ]);
+  const frameOrder = visibleConfiguratorItems(items, ["frame", "mounting", "hardware"]);
+  const accessoryOrder = visibleConfiguratorItems(
+    items,
+    PRODUCT_ACCESSORIES.map((item) => item.id),
+  );
+  const brandingOrder = visibleConfiguratorItems(
+    items,
+    BRANDING_OPTIONS.map((item) => item.id),
+  );
+
+  function place(order: string[], id: string) {
+    const index = order.indexOf(id);
+    return index < 0 ? null : index;
+  }
 
   return (
-    <div className="space-y-3">
-      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
-        <h2 className="text-sm font-semibold text-foreground">Prelucrări</h2>
+    <>
+      {show("processing") && processingOrder.length > 0 ? (
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold text-foreground" style={{ order: -1 }}>
+          Prelucrări
+        </h2>
 
+        {place(processingOrder, "sandblast") != null ? (
+        <div className="space-y-3" style={{ order: place(processingOrder, "sandblast")! }}>
         <div className="grid gap-2">
           <Label>Sablare decorativă</Label>
           <select
@@ -218,8 +269,14 @@ export function ProcessingSections({
             ) : null}
           </fieldset>
         ) : null}
+        </div>
+        ) : null}
 
-        <fieldset className="space-y-3 rounded-lg border border-border p-3">
+        {place(processingOrder, "facet") != null ? (
+        <fieldset
+          className="space-y-3 rounded-lg border border-border p-3"
+          style={{ order: place(processingOrder, "facet")! }}
+        >
           <legend className="px-1 text-xs font-medium">Fațete</legend>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -280,8 +337,13 @@ export function ProcessingSections({
             </div>
           ) : null}
         </fieldset>
+        ) : null}
 
-        <fieldset className="space-y-3 rounded-lg border border-border p-3">
+        {place(processingOrder, "engraving") != null ? (
+        <fieldset
+          className="space-y-3 rounded-lg border border-border p-3"
+          style={{ order: place(processingOrder, "engraving")! }}
+        >
           <legend className="px-1 text-xs font-medium">Gravură</legend>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -312,8 +374,11 @@ export function ProcessingSections({
             </div>
           ) : null}
         </fieldset>
+        ) : null}
       </section>
+      ) : null}
 
+      {show("defog") ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Dezaburire</h2>
         <label className="flex items-center gap-2 text-sm">
@@ -346,10 +411,15 @@ export function ProcessingSections({
           </div>
         ) : null}
       </section>
+      ) : null}
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-3">
-        <h2 className="text-sm font-semibold">Rame și fixare</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+      {show("frames") && frameOrder.length > 0 ? (
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
+        <h2 className="text-sm font-semibold" style={{ order: -1 }}>
+          Rame și fixare
+        </h2>
+        {place(frameOrder, "frame") != null ? (
+        <div className="grid gap-3 sm:grid-cols-2" style={{ order: place(frameOrder, "frame")! }}>
           <div className="grid gap-1.5">
             <Label>Tip ramă</Label>
             <select
@@ -372,9 +442,20 @@ export function ProcessingSections({
               ))}
             </select>
           </div>
-          {processing.frameType !== "none" ? (
+          {processing.frameType !== "none" && frameOutline ? (
+            <div className="grid gap-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
+              <p className="text-xs text-muted-foreground">Lungime ramă</p>
+              <p className="text-sm font-medium">{frameOutline.meters.toFixed(2)} m</p>
+              <p className="text-xs text-muted-foreground">
+                {shapeId === "round"
+                  ? `Diametru ${widthMm} mm × 3,14`
+                  : "Perimetrul oglinzii"}
+              </p>
+            </div>
+          ) : null}
+          {processing.frameType !== "none" && !frameOutline ? (
             <div className="grid gap-1.5">
-              <Label>Consum explicit</Label>
+              <Label>Consum, metri</Label>
               <Input
                 inputMode="decimal"
                 value={String(processing.frameConsumptionQty || "")}
@@ -384,11 +465,16 @@ export function ProcessingSections({
                   })
                 }
               />
+              <p className="text-xs text-muted-foreground">
+                Această formă nu are lungime automată. Scrieți metrii.
+              </p>
             </div>
           ) : null}
         </div>
+        ) : null}
 
-        <div className="grid gap-1.5 max-w-sm">
+        {place(frameOrder, "mounting") != null ? (
+        <div className="grid max-w-sm gap-1.5" style={{ order: place(frameOrder, "mounting")! }}>
           <Label>Tip montaj</Label>
           <select
             className={selectClass()}
@@ -407,8 +493,13 @@ export function ProcessingSections({
             ))}
           </select>
         </div>
+        ) : null}
 
-        <fieldset className="space-y-2 rounded-lg border border-border p-3">
+        {place(frameOrder, "hardware") != null ? (
+        <fieldset
+          className="space-y-2 rounded-lg border border-border p-3"
+          style={{ order: place(frameOrder, "hardware")! }}
+        >
           <legend className="px-1 text-xs font-medium">
             Componente fixare (configurabile)
           </legend>
@@ -468,8 +559,11 @@ export function ProcessingSections({
             Adaugă componentă
           </button>
         </fieldset>
+        ) : null}
       </section>
+      ) : null}
 
+      {show("cutouts") ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Găuri și decupaje</h2>
         {processing.cutouts.map((cutout, index) => (
@@ -592,11 +686,17 @@ export function ProcessingSections({
           Adaugă gaură / decupaj
         </button>
       </section>
+      ) : null}
 
+      {show("accessories") && accessoryOrder.length > 0 ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Accesorii</h2>
         <div className="grid gap-2">
-          {processing.accessories.map((acc) => {
+          {accessoryOrder.map((id) => {
+            const acc = processing.accessories.find((item) => item.id === id);
+            if (!acc) {
+              return null;
+            }
             const meta = PRODUCT_ACCESSORIES.find((item) => item.id === acc.id)!;
             return (
               <div
@@ -658,11 +758,17 @@ export function ProcessingSections({
           })}
         </div>
       </section>
+      ) : null}
 
+      {show("branding") && brandingOrder.length > 0 ? (
       <section className="space-y-3 rounded-xl border border-border bg-card p-3">
         <h2 className="text-sm font-semibold">Branding și protecție</h2>
         <div className="grid gap-2">
-          {processing.branding.map((brand) => {
+          {brandingOrder.map((id) => {
+            const brand = processing.branding.find((item) => item.id === id);
+            if (!brand) {
+              return null;
+            }
             const meta = BRANDING_OPTIONS.find((item) => item.id === brand.id)!;
             return (
               <div
@@ -720,6 +826,7 @@ export function ProcessingSections({
           })}
         </div>
       </section>
-    </div>
+      ) : null}
+    </>
   );
 }

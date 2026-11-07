@@ -6,6 +6,7 @@ import {
   LIGHTING_TYPES,
   LED_POSITIONINGS,
   LED_STRIP_TYPES,
+  SWITCH_TYPES,
 } from "@/modules/configurator/lighting";
 import { lightingUsesBack, lightingUsesFront } from "@/modules/configurator/lighting";
 import { DEFOG_CONTROLS } from "@/modules/configurator/processing";
@@ -97,6 +98,18 @@ export function summarizeTechFeatures(state: ConfiguratorState): OfferTechSummar
     features.push(
       `LED spate: ${strip ?? "?"} · ${pos ?? "?"} · ${state.lighting.back.temperatureK}K`,
     );
+  }
+  if (state.lighting.switches.length > 0) {
+    const labels = state.lighting.switches.map((sw) => {
+      if (sw.type === "touch") {
+        return "Senzor";
+      }
+      if (sw.type === "motion") {
+        return "Detector de mișcare";
+      }
+      return SWITCH_TYPES.find((item) => item.id === sw.type)?.label ?? sw.type;
+    });
+    features.push(`Întrerupător: ${labels.join(", ")}`);
   }
   if (state.processing.sandblastFinish !== "none") {
     features.push(`Sablare: ${state.processing.sandblastFinish}`);

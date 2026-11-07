@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMdl } from "@/modules/orders/public";
 import { placeCartOrderAction } from "@/modules/shop/actions";
+import type { ShopLocale } from "@/modules/shop/locale";
+import { t } from "@/modules/shop/messages";
+import { localizePhrase } from "@/modules/shop/phrases";
 import { CART_MAX_QUANTITY, cartFormStartedAt, cartLineTotal, cartTotal, stableSelection } from "@/modules/shop/cart";
 
 let checkoutSession: { signature: string; key: string } | null = null;
@@ -52,7 +55,7 @@ function rememberOrder(number: string): void {
   }
 }
 
-export function CartView() {
+export function CartView({ locale = "ro" }: { locale?: ShopLocale }) {
   const cart = useCart();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -100,10 +103,10 @@ export function CartView() {
     }
     if (result.code === "PRICE_CHANGED") {
       cart.applyPrices(result.updates);
-      setPriceNotice(result.message);
+      setPriceNotice(localizePhrase(locale, result.message));
       return;
     }
-    setError(result.message);
+    setError(localizePhrase(locale, result.message));
   }
 
   if (cart.lines.length === 0) {
@@ -111,18 +114,17 @@ export function CartView() {
       <div className="space-y-6">
         {orderNumber ? (
           <div className="space-y-2 rounded-xl border border-border p-6" role="status">
-            <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">Comandă plasată</p>
+            <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">{t(locale, "orderPlaced")}</p>
             <p className="text-3xl font-semibold tracking-tight">{orderNumber}</p>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-              Comanda are statusul Nouă. Nu este nevoie de cont. Plata online nu este disponibilă în
-              această etapă.
+              {t(locale, "orderPlacedLead")}
             </p>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Coșul este gol.</p>
+          <p className="text-sm text-muted-foreground">{t(locale, "cartEmpty")}</p>
         )}
         <Link href="/catalog" className="text-sm underline-offset-4 hover:underline">
-          Înapoi la catalog
+          {t(locale, "backToCatalog")}
         </Link>
       </div>
     );
@@ -168,7 +170,7 @@ export function CartView() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Label htmlFor={`qty-${line.id}`} className="text-sm text-muted-foreground">
-                    Cantitate
+                    {t(locale, "quantity")}
                   </Label>
                   <Input
                     id={`qty-${line.id}`}
@@ -184,7 +186,7 @@ export function CartView() {
                     className="text-sm text-muted-foreground underline-offset-4 hover:underline"
                     onClick={() => cart.remove(line.id)}
                   >
-                    Elimină
+                    {t(locale, "remove")}
                   </button>
                 </div>
                 <p className="text-sm font-medium">{formatMdl(cartLineTotal(line.unitPrice, line.quantity))}</p>
@@ -196,10 +198,10 @@ export function CartView() {
 
       <form onSubmit={submit} className="space-y-5 rounded-xl border border-border p-5">
         <div>
-          <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">Total</p>
+          <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">{t(locale, "total")}</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight">{formatMdl(total)}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Prețul este verificat pe server înainte de salvare. Nu este nevoie de cont sau parolă.
+            {t(locale, "cartLead")}
           </p>
         </div>
         {priceNotice ? (
@@ -213,11 +215,11 @@ export function CartView() {
           </p>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="cart-name">Nume</Label>
+          <Label htmlFor="cart-name">{t(locale, "name")}</Label>
           <Input id="cart-name" value={name} autoComplete="name" required onChange={(event) => setName(event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="cart-phone">Telefon</Label>
+          <Label htmlFor="cart-phone">{t(locale, "phone")}</Label>
           <Input
             id="cart-phone"
             value={phone}
@@ -228,7 +230,7 @@ export function CartView() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="cart-address">Adresă de livrare</Label>
+          <Label htmlFor="cart-address">{t(locale, "address")}</Label>
           <Textarea
             id="cart-address"
             value={address}
@@ -249,7 +251,7 @@ export function CartView() {
           />
         </div>
         <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "Se trimite…" : priceNotice ? "Confirmă comanda" : "Plasează comanda"}
+          {pending ? t(locale, "sending") : priceNotice ? t(locale, "confirmOrder") : t(locale, "placeOrder")}
         </Button>
       </form>
     </div>

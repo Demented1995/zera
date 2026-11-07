@@ -2,6 +2,9 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
 import { mediaPath } from "@/modules/catalog/images/service";
+import { readProductTranslation } from "@/modules/catalog/content/translation";
+import type { ShopLocale } from "@/modules/shop/locale";
+import { localizePhrase } from "@/modules/shop/phrases";
 
 export const CATALOG_PAGE_SIZE = 12;
 
@@ -138,7 +141,8 @@ const cardSelect = {
   defaultWidthMm: true,
   defaultHeightMm: true,
   retailPrice: true,
-  category: { select: { name: true, slug: true } },
+  translationsJson: true,
+  category: { select: { name: true, nameRu: true, slug: true } },
   images: {
     orderBy: [{ isPrimary: "desc" as const }, { sortOrder: "asc" as const }],
     take: 1,
@@ -156,32 +160,37 @@ function toCard(row: {
   defaultWidthMm: Prisma.Decimal;
   defaultHeightMm: Prisma.Decimal;
   retailPrice: Prisma.Decimal | null;
-  category: { name: string; slug: string };
+  translationsJson: unknown;
+  category: { name: string; nameRu: string | null; slug: string };
   images: Array<{ id: string; altText: string }>;
-}): PublicModelCard {
+}, locale: ShopLocale): PublicModelCard {
   const image = row.images[0];
+  const russian = locale === "ru" ? readProductTranslation(row.translationsJson) : null;
+  const name = russian?.name || row.name;
+  const categoryName =
+    locale === "ru" ? row.category.nameRu?.trim() || localizePhrase("ru", row.category.name) : row.category.name;
   return {
     id: row.id,
     slug: row.slug,
-    name: row.name,
-    shortDescription: row.shortDescription,
-    categoryName: row.category.name,
+    name,
+    shortDescription: russian?.shortDescription || row.shortDescription,
+    categoryName,
     categorySlug: row.category.slug,
     shapeId: row.shapeId,
-    shapeLabel: row.shapeLabel,
+    shapeLabel: localizePhrase(locale, row.shapeLabel),
     widthMm: Number(row.defaultWidthMm),
     heightMm: Number(row.defaultHeightMm),
     retailPrice: Number(row.retailPrice),
     image: image
       ? {
           src: mediaPath(row.id, image.id, "thumb"),
-          alt: image.altText.trim() || row.name,
+          alt: russian?.primaryAltText || image.altText.trim() || name,
         }
       : null,
   };
 }
 
-export async function listPublicModels(filters: CatalogFilters) {
+export async function listPublicModels(filters: CatalogFilters, locale: ShopLocale = "ro") {
   const where = catalogWhere(filters);
   const page = filters.page;
   const [total, rows] = await Promise.all([
@@ -195,7 +204,7 @@ export async function listPublicModels(filters: CatalogFilters) {
     }),
   ]);
   return {
-    rows: rows.map(toCard),
+    rows: rows.map((row) => toCard(row, locale)),
     total,
     page,
     pages: Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE)),
@@ -214,21 +223,44 @@ export async function listPublicModelPaths() {
   });
 }
 
-export async function catalogFacets() {
+export async function getPublicCategory(slug: string, locale: ShopLocale = "ro") {
+  const row = await prisma.mirrorModelCategory.findFirst({
+    where: { slug, isActive: true },
+    select: { name: true, nameRu: true },
+  });
+  if (!row) {
+    return null;
+  }
+  return {
+    name: locale === "ru" ? row.nameRu?.trim() || localizePhrase("ru", row.name) : row.name,
+  };
+}
+
+export async function catalogFacets(locale: ShopLocale = "ro") {
   const rows = await prisma.mirrorModel.findMany({
     where: sellableModelWhere,
     select: {
       shapeId: true,
       shapeLabel: true,
-      category: { select: { name: true, slug: true, description: true } },
+      category: { select: { name: true, nameRu: true, slug: true, description: true, descriptionRu: true } },
     },
     orderBy: { name: "asc" },
   });
   const categories = new Map<string, { name: string; slug: string; description: string | null }>();
   const shapes = new Map<string, string>();
   for (const row of rows) {
-    categories.set(row.category.slug, row.category);
-    shapes.set(row.shapeId, row.shapeLabel);
+    categories.set(row.category.slug, {
+      slug: row.category.slug,
+      name:
+        locale === "ru"
+          ? row.category.nameRu?.trim() || localizePhrase("ru", row.category.name)
+          : row.category.name,
+      description:
+        locale === "ru"
+          ? row.category.descriptionRu?.trim() || row.category.description
+          : row.category.description,
+    });
+    shapes.set(row.shapeId, localizePhrase(locale, row.shapeLabel));
   }
   return {
     categories: [...categories.values()],
@@ -255,6 +287,7 @@ export async function findSellableBySlug(slug: string) {
       shortDescription: true,
       seoTitle: true,
       seoDescription: true,
+      translationsJson: true,
       retailPrice: true,
       updatedAt: true,
     },

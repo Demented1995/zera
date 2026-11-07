@@ -13,6 +13,7 @@ import {
   LED_TEMPERATURES,
   SWITCH_TYPES,
   defaultLightingConfig,
+  customerDiffuserOffered,
   lightingDiffuserOn,
   lightingUsesBack,
   lightingUsesFront,
@@ -347,7 +348,7 @@ function pushLightingControls(
   if (ledOn) {
     pushCustomerLedColor(controls, rules, config, frontOn, backOn);
   }
-  if (backOn) {
+  if (backOn && customerDiffuserOffered(config.lighting)) {
     pushDiffuserControl(controls, config);
   }
 }

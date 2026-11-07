@@ -18,6 +18,7 @@ type AdminShellProps = {
     email: string;
     role: Role;
   };
+  unopenedRequests?: number;
   children: React.ReactNode;
 };
 
@@ -36,11 +37,12 @@ function resolvePageTitle(pathname: string) {
   return nested?.title ?? "Admin";
 }
 
-export function AdminShell({ user, children }: AdminShellProps) {
+export function AdminShell({ user, unopenedRequests = 0, children }: AdminShellProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = useMemo(() => getNavItemsForRole(user.role), [user.role]);
+  const badges = unopenedRequests > 0 ? { "/admin/oferte": unopenedRequests } : undefined;
   const title = resolvePageTitle(pathname);
 
   function toggleCollapsed() {
@@ -51,6 +53,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
     <div className="flex min-h-svh bg-muted/30 text-foreground">
       <AdminSidebar
         items={navItems}
+        badges={badges}
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
       />
@@ -58,6 +61,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
         <AdminHeader
           title={title}
           navItems={navItems}
+          badges={badges}
           user={{
             name: user.name?.trim() || user.email,
             email: user.email,
@@ -65,7 +69,9 @@ export function AdminShell({ user, children }: AdminShellProps) {
           }}
         />
         <main className="flex-1 px-4 py-6 md:px-6 md:py-8">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div className={pathname === "/admin/comenzi" ? "w-full" : "mx-auto w-full max-w-6xl"}>
+            {children}
+          </div>
         </main>
       </div>
     </div>

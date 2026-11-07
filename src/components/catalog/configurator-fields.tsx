@@ -11,15 +11,19 @@ import type {
   PreviewPatch,
   PreviewSection,
 } from "@/modules/catalog/preview/types";
+import type { ShopLocale } from "@/modules/shop/locale";
+import { t } from "@/modules/shop/messages";
+import { localizePhrase } from "@/modules/shop/phrases";
 
 type Props = {
   sections: PreviewSection[];
   controls: PreviewControl[];
   revision: number;
   onPatch: (patch: PreviewPatch) => void;
+  locale?: ShopLocale;
 };
 
-export function ConfiguratorFields({ sections, controls, onPatch }: Props) {
+export function ConfiguratorFields({ sections, controls, onPatch, locale = "ro" }: Props) {
   const dimensionControls = controls.filter(
     (control): control is Extract<PreviewControl, { kind: "dimension" }> =>
       control.kind === "dimension",
@@ -54,6 +58,7 @@ export function ConfiguratorFields({ sections, controls, onPatch }: Props) {
               key={control.id}
               control={control}
               onPatch={onPatch}
+              locale={locale}
             />
           ))}
         </div>
@@ -62,11 +67,11 @@ export function ConfiguratorFields({ sections, controls, onPatch }: Props) {
       {fixed.length > 0 ? (
         <section className="space-y-3">
           <h3 className="text-xs tracking-[0.16em] text-muted-foreground uppercase">
-            Configurație
+            {t(locale, "configuration")}
           </h3>
           <dl className="divide-y divide-border border-y border-border">
             {fixed.map((control) => (
-              <ControlField key={control.id} control={control} onPatch={onPatch} />
+              <ControlField key={control.id} control={control} onPatch={onPatch} locale={locale} />
             ))}
           </dl>
         </section>
@@ -75,7 +80,7 @@ export function ConfiguratorFields({ sections, controls, onPatch }: Props) {
       {editable.length > 0 ? (
         <div className="space-y-6">
           <h3 className="text-xs tracking-[0.16em] text-muted-foreground uppercase">
-            Opțiuni suplimentare
+            {t(locale, "extraOptions")}
           </h3>
           {editableSections.map((section) => (
             <OptionSection
@@ -83,6 +88,7 @@ export function ConfiguratorFields({ sections, controls, onPatch }: Props) {
               section={section}
               controls={editable.filter((control) => control.section === section.id)}
               onPatch={onPatch}
+              locale={locale}
             />
           ))}
         </div>
@@ -95,10 +101,12 @@ function OptionSection({
   section,
   controls,
   onPatch,
+  locale,
 }: {
   section: PreviewSection;
   controls: PreviewControl[];
   onPatch: (patch: PreviewPatch) => void;
+  locale: ShopLocale;
 }) {
   const showTitle = section.id !== "glass";
   return (
@@ -110,7 +118,7 @@ function OptionSection({
       ) : null}
       <div className="space-y-4">
         {controls.map((control) => (
-          <ControlField key={control.id} control={control} onPatch={onPatch} />
+          <ControlField key={control.id} control={control} onPatch={onPatch} locale={locale} />
         ))}
       </div>
     </section>
@@ -140,17 +148,19 @@ function ChoiceGroup({
   value,
   options,
   onPick,
+  locale,
 }: {
   label: string;
   value: string;
   options: Array<{ id: string; label: string; supplementMdl?: number | null }>;
   onPick: (id: string) => void;
+  locale: ShopLocale;
 }) {
   return (
     <fieldset className="space-y-2">
       {label ? <legend className="text-sm font-medium">{label}</legend> : null}
       {options.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
+        <p className="text-sm text-muted-foreground">{t(locale, "noOptions")}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {options.map((option) => {
@@ -185,9 +195,11 @@ function ChoiceGroup({
 function ControlField({
   control,
   onPatch,
+  locale,
 }: {
   control: PreviewControl;
   onPatch: (patch: PreviewPatch) => void;
+  locale: ShopLocale;
 }) {
   if (control.kind === "text") {
     return (
@@ -199,7 +211,7 @@ function ControlField({
   }
 
   if (control.kind === "dimension") {
-    return <DimensionField control={control} onPatch={onPatch} />;
+    return <DimensionField control={control} onPatch={onPatch} locale={locale} />;
   }
 
   if (control.kind === "toggle") {
@@ -210,10 +222,10 @@ function ControlField({
         options={[
           {
             id: "false",
-            label: "Nu",
+            label: localizePhrase(locale, "Nu"),
             supplementMdl: control.supplementMdl == null ? null : 0,
           },
-          { id: "true", label: "Da", supplementMdl: control.supplementMdl ?? null },
+          { id: "true", label: localizePhrase(locale, "Da"), supplementMdl: control.supplementMdl ?? null },
         ]}
         onPick={(id) =>
           onPatch({
@@ -221,6 +233,7 @@ function ControlField({
             value: id === "true",
           })
         }
+        locale={locale}
       />
     );
   }
@@ -233,7 +246,7 @@ function ControlField({
         <div className="grid gap-1.5">
           {label ? <Label htmlFor={control.id}>{label}</Label> : null}
           {control.options.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
+            <p className="text-sm text-muted-foreground">{t(locale, "noOptions")}</p>
           ) : (
             <select
               id={control.id}
@@ -260,6 +273,7 @@ function ControlField({
         value={control.value}
         options={control.options}
         onPick={(id) => patchSelect(control, id, onPatch)}
+        locale={locale}
       />
     );
   }
@@ -269,7 +283,7 @@ function ControlField({
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">{control.label}</legend>
         {control.options.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
+          <p className="text-sm text-muted-foreground">{t(locale, "noOptions")}</p>
         ) : (
           control.options.map((option) => {
             const checked = control.values.includes(option.id);
@@ -299,7 +313,7 @@ function ControlField({
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">{control.label}</legend>
       {control.lines.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nicio variantă permisă.</p>
+        <p className="text-sm text-muted-foreground">{t(locale, "noOptions")}</p>
       ) : (
         control.lines.map((line) => (
           <label key={line.type} className="flex items-center justify-between gap-3 text-sm">
@@ -330,9 +344,11 @@ function ControlField({
 function DimensionField({
   control,
   onPatch,
+  locale,
 }: {
   control: Extract<PreviewControl, { kind: "dimension" }>;
   onPatch: (patch: PreviewPatch) => void;
+  locale: ShopLocale;
 }) {
   const [draft, setDraft] = useState(String(control.value));
   const focusedRef = useRef(false);
@@ -358,9 +374,9 @@ function DimensionField({
   }
 
   const hint = [
-    control.minMm != null ? `min ${control.minMm} mm` : null,
-    control.maxMm != null ? `max ${control.maxMm} mm` : null,
-    control.stepMm != null ? `pas ${control.stepMm} mm` : null,
+    control.minMm != null ? `${t(locale, "min")} ${control.minMm} mm` : null,
+    control.maxMm != null ? `${t(locale, "max")} ${control.maxMm} mm` : null,
+    control.stepMm != null ? `${t(locale, "step")} ${control.stepMm} mm` : null,
   ]
     .filter(Boolean)
     .join(" · ");

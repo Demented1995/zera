@@ -41,7 +41,7 @@ export default async function ModelContentPage({ params }: PageProps) {
     <div className="space-y-6">
       <PageHeader
         title="Descriere și specificații"
-        description={model.name}
+        description={`${model.name}. Textul în română rămâne sursa. Secțiunea „Text în rusă” se arată pe site doar când limba este rusă; câmpurile goale păstrează româna.`}
         actions={
           <Link href="/admin/modele" className="text-sm underline-offset-2 hover:underline">
             Înapoi la modele

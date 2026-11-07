@@ -169,6 +169,8 @@ export type LightingConfig = {
   transformerPcs: number;
   electricalConnection: ElectricalConnectionId;
   extraComponents: ExtraComponentConfig[];
+  /** When true, the product page lets the customer add or remove the diffuser. */
+  offerDiffuser?: boolean;
 };
 
 export function defaultLedSystem(): LedSystemConfig {
@@ -190,6 +192,7 @@ export function defaultLightingConfig(): LightingConfig {
     switches: [],
     transformerPcs: 0,
     electricalConnection: "direct-cable",
+    offerDiffuser: false,
     extraComponents: EXTRA_COMPONENTS.map((item) => ({
       id: item.id,
       enabled: false,
@@ -220,6 +223,10 @@ export const LIGHTING_DIFFUSER_IDS = [
   "plexiglass-diffuser",
   "aluminium-diffusion-profile",
 ] as const;
+
+export function customerDiffuserOffered(lighting: LightingConfig): boolean {
+  return lighting.offerDiffuser === true;
+}
 
 export function lightingDiffuserOn(lighting: LightingConfig): boolean {
   return lighting.extraComponents.some(

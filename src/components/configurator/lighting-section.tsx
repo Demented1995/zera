@@ -19,6 +19,10 @@ import {
   type SwitchConfig,
 } from "@/modules/configurator/lighting";
 import {
+  visibleConfiguratorItems,
+  type ConfiguratorItemSetting,
+} from "@/modules/configurator/layout";
+import {
   resolveLedLength,
   type LedPositioning,
 } from "@/modules/pricing/engine/led-length";
@@ -31,6 +35,8 @@ type LightingSectionProps = {
   shapeId?: string;
   /** Model setup leaves LED color to the customer. */
   showTemperature?: boolean;
+  /** Saved elements. Missing means every element stays visible, in the default order. */
+  items?: ConfiguratorItemSetting[];
   onChange: (next: LightingConfig) => void;
 };
 
@@ -45,6 +51,7 @@ export function LightingSection({
   shapeIsRectangular,
   shapeId,
   showTemperature = true,
+  items,
   onChange,
 }: LightingSectionProps) {
   function setLightingType(lightingType: LightingType) {
@@ -95,12 +102,33 @@ export function LightingSection({
   const showFront = lightingUsesFront(lighting.lightingType);
   const showBack = lightingUsesBack(lighting.lightingType);
   const showElectrical = lighting.lightingType !== "none";
+  const order = visibleConfiguratorItems(items, [
+    "type",
+    "front",
+    "back",
+    "diffuser",
+    "switches",
+    "power",
+    "extras",
+  ]);
+
+  function place(id: string) {
+    const index = order.indexOf(id);
+    return index < 0 ? null : index;
+  }
+
+  if (order.length === 0) {
+    return null;
+  }
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-3">
-      <h2 className="text-sm font-semibold text-foreground">Iluminare LED</h2>
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
+      <h2 className="text-sm font-semibold text-foreground" style={{ order: -1 }}>
+        Iluminare LED
+      </h2>
 
-      <div className="grid gap-2">
+      {place("type") != null ? (
+      <div className="grid gap-2" style={{ order: place("type")! }}>
         <Label htmlFor="lightingType">Tip iluminare</Label>
         <select
           id="lightingType"
@@ -117,8 +145,10 @@ export function LightingSection({
           ))}
         </select>
       </div>
+      ) : null}
 
-      {showFront ? (
+      {showFront && place("front") != null ? (
+        <div style={{ order: place("front")! }}>
         <LedSystemFields
           title="LED față"
           system={lighting.front}
@@ -129,9 +159,11 @@ export function LightingSection({
           showTemperature={showTemperature}
           onChange={patchFront}
         />
+        </div>
       ) : null}
 
-      {showBack ? (
+      {showBack && place("back") != null ? (
+        <div style={{ order: place("back")! }}>
         <LedSystemFields
           title="LED spate"
           system={lighting.back}
@@ -142,11 +174,37 @@ export function LightingSection({
           showTemperature={showTemperature}
           onChange={patchBack}
         />
+        </div>
       ) : null}
 
-      {showElectrical ? (
-        <>
-          <fieldset className="space-y-2 rounded-lg border border-border p-2.5">
+      {showBack && place("diffuser") != null ? (
+        <label
+          className="flex items-start gap-2 rounded-lg border border-border p-3 text-sm"
+          style={{ order: place("diffuser")! }}
+        >
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={lighting.offerDiffuser === true}
+            onChange={(event) =>
+              onChange({ ...lighting, offerDiffuser: event.target.checked })
+            }
+          />
+          <span>
+            <span className="font-medium">Difuzor de iluminare</span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Bifat, clientul poate alege difuzorul pe pagina produsului. Debifat,
+              opțiunea nu apare.
+            </span>
+          </span>
+        </label>
+      ) : null}
+
+      {showElectrical && place("switches") != null ? (
+          <fieldset
+            className="space-y-2 rounded-lg border border-border p-2.5"
+            style={{ order: place("switches")! }}
+          >
             <legend className="px-1 text-xs font-medium text-foreground">
               Comenzi / întrerupătoare
             </legend>
@@ -222,8 +280,13 @@ export function LightingSection({
               Adaugă întrerupător
             </button>
           </fieldset>
+      ) : null}
 
-          <fieldset className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
+      {showElectrical && place("power") != null ? (
+          <fieldset
+            className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2"
+            style={{ order: place("power")! }}
+          >
             <legend className="px-1 text-xs font-medium text-foreground">
               Alimentare
             </legend>
@@ -266,8 +329,13 @@ export function LightingSection({
               </select>
             </div>
           </fieldset>
+      ) : null}
 
-          <fieldset className="space-y-2 rounded-lg border border-border p-2.5">
+      {showElectrical && place("extras") != null ? (
+          <fieldset
+            className="space-y-2 rounded-lg border border-border p-2.5"
+            style={{ order: place("extras")! }}
+          >
             <legend className="px-1 text-xs font-medium text-foreground">
               Componente tehnice suplimentare
             </legend>
@@ -330,7 +398,6 @@ export function LightingSection({
               })}
             </div>
           </fieldset>
-        </>
       ) : null}
     </section>
   );
