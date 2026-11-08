@@ -16,6 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type PageProps = {
   searchParams?: Promise<{
+    q?: string;
     categorie?: string;
     page?: string;
   }>;
@@ -24,7 +25,11 @@ type PageProps = {
 export default async function CatalogPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const locale = await getShopLocale();
-  const filters = parseCatalogFilters({ categorie: params.categorie, page: params.page });
+  const filters = parseCatalogFilters({
+    q: params.q,
+    categorie: params.categorie,
+    page: params.page,
+  });
   const [catalog, category] = await Promise.all([
     listPublicModels(filters, locale),
     filters.category ? getPublicCategory(filters.category, locale) : Promise.resolve(null),
@@ -32,6 +37,9 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
   function hrefFor(nextPage: number) {
     const search = new URLSearchParams();
+    if (filters.q) {
+      search.set("q", filters.q);
+    }
     if (filters.category) {
       search.set("categorie", filters.category);
     }

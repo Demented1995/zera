@@ -50,9 +50,9 @@ export function ConfiguratorFields({ sections, controls, onPatch, locale = "ro" 
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {dimensions.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {dimensions.map((control) => (
             <ControlField
               key={control.id}
@@ -65,7 +65,7 @@ export function ConfiguratorFields({ sections, controls, onPatch, locale = "ro" 
       ) : null}
 
       {fixed.length > 0 ? (
-        <section className="space-y-3">
+        <section className="space-y-1.5">
           <h3 className="text-xs tracking-[0.16em] text-muted-foreground uppercase">
             {t(locale, "configuration")}
           </h3>
@@ -78,7 +78,7 @@ export function ConfiguratorFields({ sections, controls, onPatch, locale = "ro" 
       ) : null}
 
       {editable.length > 0 ? (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <h3 className="text-xs tracking-[0.16em] text-muted-foreground uppercase">
             {t(locale, "extraOptions")}
           </h3>
@@ -110,13 +110,13 @@ function OptionSection({
 }) {
   const showTitle = section.id !== "glass";
   return (
-    <section className="space-y-3">
+    <section className="space-y-2">
       {showTitle ? (
-        <h4 className="text-xs font-medium tracking-[0.14em] text-foreground uppercase">
+        <h4 className="text-[0.7rem] font-medium tracking-[0.14em] text-foreground uppercase">
           {section.title}
         </h4>
       ) : null}
-      <div className="space-y-4">
+      <div className="space-y-2.5">
         {controls.map((control) => (
           <ControlField key={control.id} control={control} onPatch={onPatch} locale={locale} />
         ))}
@@ -157,12 +157,12 @@ function ChoiceGroup({
   locale: ShopLocale;
 }) {
   return (
-    <fieldset className="space-y-2">
-      {label ? <legend className="text-sm font-medium">{label}</legend> : null}
+    <fieldset className="space-y-1.5">
+      {label ? <legend className="text-sm leading-none font-medium">{label}</legend> : null}
       {options.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(locale, "noOptions")}</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {options.map((option) => {
             const selected = option.id === value;
             return (
@@ -171,7 +171,7 @@ function ChoiceGroup({
                 type="button"
                 aria-pressed={selected}
                 onClick={() => onPick(option.id)}
-                className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+                className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-sm leading-none ${
                   selected
                     ? "border-foreground bg-foreground text-background"
                     : "border-border bg-transparent text-foreground"
@@ -203,7 +203,7 @@ function ControlField({
 }) {
   if (control.kind === "text") {
     return (
-      <div className="flex items-baseline justify-between gap-4 py-2.5">
+      <div className="flex items-baseline justify-between gap-4 py-1.5">
         <dt className="text-sm text-muted-foreground">{control.label}</dt>
         <dd className="text-right text-sm font-medium">{control.valueLabel}</dd>
       </div>
@@ -243,14 +243,14 @@ function ControlField({
     const label = control.id === "glassType" ? "" : control.label;
     if (useMenu) {
       return (
-        <div className="grid gap-1.5">
+        <div className="grid gap-1">
           {label ? <Label htmlFor={control.id}>{label}</Label> : null}
           {control.options.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t(locale, "noOptions")}</p>
           ) : (
             <select
               id={control.id}
-              className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
               value={control.value}
               onChange={(event) => patchSelect(control, event.target.value, onPatch)}
             >
@@ -361,11 +361,13 @@ function DimensionField({
 
   if (control.mode === "FIXED") {
     return (
-      <div className="grid gap-1.5">
-        <Label htmlFor={control.id}>{control.label}, mm</Label>
+      <div className="grid gap-1">
+        <Label htmlFor={control.id} className="text-sm">
+          {control.label}, mm
+        </Label>
         <div
           id={control.id}
-          className="flex h-10 items-center rounded-lg border border-input px-3 text-sm"
+          className="flex h-8 items-center rounded-lg border border-input px-2.5 text-sm"
         >
           {control.value}
         </div>
@@ -396,7 +398,7 @@ function DimensionField({
   }
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid gap-1">
       <Label htmlFor={control.id}>{control.label}, mm</Label>
       <div className="flex items-center gap-2">
         {control.stepMm != null ? (

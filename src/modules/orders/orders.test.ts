@@ -13,7 +13,7 @@ import { parseCustomerInput } from "@/modules/customers/schemas";
 import { saveCustomer } from "@/modules/customers/service";
 import { canManageOrders } from "@/modules/orders/permissions";
 import { getOrder, listOrders, listSiteRequests, readOrderSummary } from "@/modules/orders/queries";
-import { acceptedRetailPrice, mirrorCode, ONE_CLICK_ADDRESS, orderBalance } from "@/modules/orders/public";
+import { acceptedPayablePrice, acceptedRetailPrice, formatMdl, mirrorCode, ONE_CLICK_ADDRESS, orderBalance } from "@/modules/orders/public";
 import { parseCustomProject, parseOneClickOrder, parseOrderAdvance, parsePlaceOrder } from "@/modules/orders/schemas";
 import {
   addOrderMirror,
@@ -66,6 +66,11 @@ describe("orders", () => {
     assert.equal(acceptedRetailPrice({ status: "INCOMPLETE", retailPrice: 10 }), null);
     assert.equal(acceptedRetailPrice({ status: "COMPLETE", retailPrice: null }), null);
     assert.equal(acceptedRetailPrice({ status: "COMPLETE", retailPrice: 489.6 }), 489.6);
+    assert.equal(
+      acceptedPayablePrice({ status: "COMPLETE", retailPrice: 700.7, financial: { offerRetail: 700.7 } }),
+      701,
+    );
+    assert.equal(formatMdl(700.7), "701 MDL");
     assert.equal(orderBalance(489.6, 100), 389.6);
     assert.equal(mirrorCode("CMD-2026-0013", 1), "CMD-2026-0013/1");
     assert.equal(mirrorCode("CMD-2026-0013", 2), "CMD-2026-0013/2");

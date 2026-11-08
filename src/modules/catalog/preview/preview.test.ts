@@ -264,7 +264,7 @@ describe("customer configurator preview", () => {
       includeDiagnostic: false,
     });
 
-    assert.equal(view.customer.price.retailPrice, calculation?.retailPrice);
+    assert.equal(view.customer.price.retailPrice, Math.round(calculation!.retailPrice!));
     assert.notEqual(view.customer.price.retailPrice, calculation?.wholesalePrice);
     assert.equal(findForbiddenCommercialKey(view.customer), null);
     assert.equal(view.customer.selection.widthMm, 800);

@@ -1,5 +1,7 @@
 import type { MirrorStatus, OrderStatus } from "@prisma/client";
 
+import { roundLei } from "@/modules/pricing/engine/money";
+
 export const ORDER_BUTTON_LABEL = "Plasează comanda";
 
 export const ORDER_FORM_NOTE =
@@ -119,7 +121,7 @@ export function acceptedPayablePrice(
   if (payable == null || !Number.isFinite(payable) || payable < 0) {
     return null;
   }
-  return Math.round(payable * 100) / 100;
+  return roundLei(payable);
 }
 
 export function orderBalance(retailPrice: number, advanceAmount: number): number {
@@ -133,7 +135,6 @@ export function mirrorCode(orderNumber: string, index: number): string {
 
 export function formatMdl(value: number): string {
   return `${new Intl.NumberFormat("ro-RO", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)} MDL`;
+    maximumFractionDigits: 0,
+  }).format(roundLei(value))} MDL`;
 }

@@ -3,6 +3,10 @@ import { describe, it } from "node:test";
 
 import { calculateMirrorPricing } from "@/modules/pricing/engine/calculate";
 import { computeGlassArea, resolveCurvedEdgeAddsMm } from "@/modules/pricing/engine/glass";
+import {
+  computeInstallCost,
+  INSTALL_MIN_CHARGE_MDL,
+} from "@/modules/pricing/engine/install";
 import { applyMarkup } from "@/modules/pricing/engine/money";
 import { computeSandblastCost } from "@/modules/pricing/engine/sandblast";
 import {
@@ -406,5 +410,53 @@ describe("catalog unit decides the quantity", () => {
     assert.equal(profile?.quantity, 4);
     assert.equal(profile?.unit, "bucată");
     assert.equal(profile?.amount, 120);
+  });
+});
+
+describe("installation charge", () => {
+  it("charges the minimum until the area price passes it", () => {
+    assert.equal(INSTALL_MIN_CHARGE_MDL, 500);
+    assert.equal(computeInstallCost(0.36, 500, 500), 500);
+    assert.equal(computeInstallCost(1, 500, 500), 500);
+    assert.equal(computeInstallCost(2, 500, 500), 1000);
+  });
+
+  it("uses the mirror area and keeps installation outside the markup", () => {
+    const materials: CatalogMaterial[] = [
+      ...catalog,
+      {
+        seedKey: "montaj-oglinda",
+        name: "Montaj oglindă",
+        unitPrice: 500,
+        unitOfMeasure: "m²",
+        isActive: true,
+      },
+    ];
+    const service = {
+      key: "install-mirror",
+      label: "Montaj: Montaj oglindă",
+      quantity: 1,
+      unit: "serviciu",
+      unitPrice: 500,
+      group: "install" as const,
+      required: true,
+    };
+
+    const small = calculateMirrorPricing(
+      baseInput({ widthMm: 600, heightMm: 1000, materials, serviceLines: [service] }),
+    );
+    const large = calculateMirrorPricing(
+      baseInput({ widthMm: 2000, heightMm: 1000, materials, serviceLines: [service] }),
+    );
+
+    assert.equal(small.financial.services.install, 500);
+    assert.equal(small.retailPrice, applyMarkup(360, 70));
+    assert.equal(small.financial.offerRetail, applyMarkup(360, 70) + 500);
+    assert.match(
+      small.lines.find((line) => line.key === "install-mirror")?.note ?? "",
+      /Minim 500 MDL/,
+    );
+    assert.equal(large.financial.services.install, 1000);
+    assert.equal(large.lines.find((line) => line.key === "install-mirror")?.quantity, 2);
   });
 });

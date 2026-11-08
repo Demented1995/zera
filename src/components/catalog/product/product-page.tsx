@@ -8,7 +8,7 @@ import { OrderForm } from "@/components/catalog/product/order-form";
 import { ProductGallery } from "@/components/catalog/product/product-gallery";
 import { RichContent } from "@/components/catalog/product/rich-content";
 import { Button } from "@/components/ui/button";
-import { isEmptyDocument } from "@/modules/catalog/content/document";
+import { isEmptyDocument, plainText } from "@/modules/catalog/content/document";
 import { productStatusNote } from "@/modules/catalog/preview/product-presentation";
 import type { CustomerPreviewPayload, PreviewPatch } from "@/modules/catalog/preview/types";
 import {
@@ -17,6 +17,7 @@ import {
   type PlaceOrderInput,
   type PlaceOrderResult,
 } from "@/modules/orders/public";
+import { ShareConfiguration } from "@/components/shop/share-configuration";
 import { selectedOptionSpecs } from "@/modules/shop/cart-summary";
 import type { ShopLocale } from "@/modules/shop/locale";
 import { t } from "@/modules/shop/messages";
@@ -29,6 +30,7 @@ type Props = {
   onPlaceOrder?: (input: PlaceOrderInput) => Promise<PlaceOrderResult>;
   onOneClick?: (input: OneClickOrderInput) => Promise<PlaceOrderResult>;
   onAddToCart?: () => void;
+  share?: { modelId: string; slug: string } | null;
   cartNote?: string | null;
   orderContextNote?: string;
   locale?: ShopLocale;
@@ -42,6 +44,7 @@ export function ProductPage({
   onPlaceOrder,
   onOneClick,
   onAddToCart,
+  share,
   cartNote,
   orderContextNote,
   locale = "ro",
@@ -62,6 +65,13 @@ export function ProductPage({
   ).map((spec, index) => ({ id: `${spec.label}-${index}`, ...spec }));
   const specs = [...selectedSpecs, ...(copy?.extraSpecs ?? [])];
   const showDescription = copy ? !isEmptyDocument(copy.description) : false;
+  const shortDescription = customer.model.shortDescription?.trim() ?? "";
+  const descriptionText = showDescription && copy
+    ? plainText(copy.description).replace(/\s+/g, " ").trim()
+    : "";
+  const showShortDescription =
+    shortDescription.length > 0 &&
+    !descriptionText.includes(shortDescription.replace(/\s+/g, " "));
   const showHighlights = copy ? !isEmptyDocument(copy.highlightsDocument) : false;
   const showCare = copy ? !isEmptyDocument(copy.careDocument) : false;
   const showWarranty = copy ? !isEmptyDocument(copy.warrantyDocument) : false;
@@ -71,17 +81,11 @@ export function ProductPage({
     <article className="overflow-x-clip bg-background pb-24 text-foreground sm:pb-0">
       <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
         <ProductGallery images={customer.gallery} locale={locale} />
-        <div className="min-w-0 space-y-8">
-          <header className="space-y-4">
-            <p className="text-xs tracking-[0.28em] text-muted-foreground uppercase">ZERA</p>
+        <div className="min-w-0 space-y-5">
+          <header className="space-y-2">
             <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
               {customer.model.name}
             </h1>
-            {customer.model.shortDescription ? (
-              <p className="max-w-xl text-base leading-7 text-muted-foreground">
-                {customer.model.shortDescription}
-              </p>
-            ) : null}
             {statusNote ? (
               <p className="text-sm text-muted-foreground">{statusNote}</p>
             ) : null}
@@ -127,6 +131,16 @@ export function ProductPage({
               {onOneClick ? (
                 <OneClickOrder disabled={!orderEnabled} onPlace={onOneClick} locale={locale} />
               ) : null}
+              {share ? (
+                <ShareConfiguration
+                  modelId={share.modelId}
+                  slug={share.slug}
+                  selection={customer.selection}
+                  revision={revision}
+                  pending={pending}
+                  locale={locale}
+                />
+              ) : null}
               {cartNote ? (
                 <p className="text-sm text-muted-foreground" role="status">
                   {cartNote}{" "}
@@ -156,10 +170,13 @@ export function ProductPage({
       </div>
 
       <div className="mt-16 space-y-14 border-t border-border pt-14">
-        {showDescription && copy ? (
+        {showShortDescription || (showDescription && copy) ? (
           <section className="space-y-4">
             <h2 className="text-2xl font-medium tracking-tight">{t(locale, "description")}</h2>
-            <RichContent document={copy.description} />
+            {showShortDescription ? (
+              <p className="max-w-3xl text-base leading-7 text-muted-foreground">{shortDescription}</p>
+            ) : null}
+            {showDescription && copy ? <RichContent document={copy.description} /> : null}
           </section>
         ) : null}
         {showHighlights && copy ? (

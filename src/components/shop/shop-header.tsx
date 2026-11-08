@@ -1,10 +1,12 @@
 "use client";
 
+import { Search } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useTransition } from "react";
 
 import { useCart } from "@/components/shop/cart-provider";
+import { Input } from "@/components/ui/input";
 import type { ShopContactLink } from "@/modules/shop/contact-links";
 import type { ShopLocale } from "@/modules/shop/locale";
 import { setShopLocaleAction } from "@/modules/shop/locale-actions";
@@ -36,7 +38,8 @@ export function ShopHeader({
         <Link href="/" className="text-sm tracking-[0.32em] uppercase">
           ZERA
         </Link>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <HeaderSearch locale={locale} />
+        <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-2">
           <nav className="flex items-center gap-5 text-sm">
             <Link href="/catalog" className="underline-offset-4 hover:underline">
               {t(locale, "catalog")}
@@ -86,6 +89,46 @@ export function ShopHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function HeaderSearch({ locale }: { locale: ShopLocale }) {
+  return (
+    <Suspense
+      fallback={
+        <SearchForm locale={locale} query="" />
+      }
+    >
+      <HeaderSearchField locale={locale} />
+    </Suspense>
+  );
+}
+
+function HeaderSearchField({ locale }: { locale: ShopLocale }) {
+  const query = useSearchParams().get("q") ?? "";
+  return <SearchForm locale={locale} query={query} />;
+}
+
+function SearchForm({ locale, query }: { locale: ShopLocale; query: string }) {
+  return (
+    <form action="/catalog" method="get" className="relative order-last w-full sm:order-none sm:w-56">
+      <label htmlFor="nav-search" className="sr-only">
+        {t(locale, "search")}
+      </label>
+      <Search
+        className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        id="nav-search"
+        name="q"
+        type="search"
+        key={query}
+        defaultValue={query}
+        placeholder={t(locale, "searchPlaceholder")}
+        className="h-8 bg-background pl-8"
+      />
+    </form>
   );
 }
 

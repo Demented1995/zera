@@ -29,6 +29,7 @@ import {
   defaultProcessingConfig,
 } from "@/modules/configurator/processing";
 import { getShapeById } from "@/modules/configurator/shapes";
+import { roundLei } from "@/modules/pricing/engine/money";
 
 import type {
   AdminPreviewDiagnostic,
@@ -955,7 +956,7 @@ function customerPrice(source: PriceSource): CustomerPreviewPayload["price"] {
   }
   return {
     available: true,
-    retailPrice: source.retailPrice,
+    retailPrice: roundLei(source.retailPrice),
     currency: "MDL",
     message: null,
   };

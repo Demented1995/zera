@@ -95,6 +95,7 @@ export function ProductPreviewScreen({
         cartNote={cartNote}
         orderContextNote={orderContextNote}
         locale={locale}
+        share={slug ? { modelId, slug } : null}
         onAddToCart={
           onAddToCart
             ? () => {

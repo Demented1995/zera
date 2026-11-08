@@ -69,7 +69,8 @@ describe("customer option supplements", () => {
   it("formats a retail supplement without inventing decimals", () => {
     assert.equal(formatSupplementMdl(0), "0 mdl");
     assert.equal(formatSupplementMdl(91), "+91 mdl");
-    assert.equal(formatSupplementMdl(-10.5), "−10,50 mdl");
+    assert.equal(formatSupplementMdl(-10.5), "−11 mdl");
+    assert.equal(formatSupplementMdl(700.7), "+701 mdl");
   });
 
   it("prices a sensor and shows 0 for an unpriced switch", () => {
@@ -114,7 +115,7 @@ describe("customer option supplements", () => {
       }).calculation,
     );
     assert.ok(withTouch != null && base != null);
-    assert.equal(touch.supplementMdl, Math.round((withTouch - base) * 100) / 100);
+    assert.equal(touch.supplementMdl, Math.round(withTouch) - Math.round(base));
     assert.ok((touch.supplementMdl ?? 0) > 0);
     assert.equal(mechanical.supplementMdl, 0);
     assert.equal(findForbiddenCommercialKey(controls), null);

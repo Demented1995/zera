@@ -7,11 +7,13 @@ import { findPublicSlugRedirect, findSellableBySlug } from "@/modules/shop/catal
 import { readProductTranslation } from "@/modules/catalog/content/translation";
 import { getShopLocale } from "@/modules/shop/locale";
 import { t } from "@/modules/shop/messages";
+import { readSharedConfiguration } from "@/modules/shop/share";
 import { quotePublicProduct } from "@/modules/shop/service";
 import { jsonForScript, publicSiteUrl } from "@/modules/shop/site";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ c?: string }>;
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -41,8 +43,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function PublicProductPage({ params }: PageProps) {
-  const { slug } = await params;
+export default async function PublicProductPage({ params, searchParams }: PageProps) {
+  const [{ slug }, query] = await Promise.all([
+    params,
+    searchParams ? searchParams : Promise.resolve({} as { c?: string }),
+  ]);
   const [model, locale] = await Promise.all([findSellableBySlug(slug), getShopLocale()]);
   if (!model) {
     const nextSlug = await findPublicSlugRedirect(slug);
@@ -52,7 +57,8 @@ export default async function PublicProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const preview = await quotePublicProduct({ modelId: model.id, request: {} });
+  const shared = query.c ? await readSharedConfiguration(query.c, model.id) : null;
+  const preview = await quotePublicProduct({ modelId: model.id, request: shared ?? {} });
   if (!preview.ok) {
     notFound();
   }
@@ -85,7 +91,7 @@ export default async function PublicProductPage({ params }: PageProps) {
     structured.offers = {
       "@type": "Offer",
       priceCurrency: "MDL",
-      price: price.toFixed(2),
+      price: String(price),
       availability: "https://schema.org/InStock",
       url: `${publicSiteUrl()}/catalog/${model.slug}`,
     };

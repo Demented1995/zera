@@ -8,6 +8,7 @@ import type {
 import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
 import { acceptedPayablePrice } from "@/modules/orders/public";
+import { roundLei } from "@/modules/pricing/engine/money";
 import type { CatalogMaterial, PricingRules } from "@/modules/pricing/engine";
 
 type SelectControl = Extract<PreviewControl, { kind: "select" }>;
@@ -89,7 +90,7 @@ function withToggleSupplement(
   }
   return {
     ...control,
-    supplementMdl: Math.round((on - off) * 100) / 100,
+    supplementMdl: roundLei(on - off),
   };
 }
 
@@ -114,7 +115,7 @@ function withSelectSupplements(
       if (price == null) {
         return { ...option, supplementMdl: null };
       }
-      const supplementMdl = Math.round((price - baseline) * 100) / 100;
+      const supplementMdl = roundLei(price - baseline);
       if (
         supplementMdl === 0 &&
         (control.id === "light-temp" ||

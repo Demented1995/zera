@@ -36,6 +36,9 @@ const messages = {
     cartFull: "Coșul poate avea cel mult 8 configurații.",
     cartMax: "Cantitatea maximă pentru această configurație este 20.",
     viewCart: "Vezi coșul",
+    copyLink: "Copiază linkul",
+    linkCopied: "Linkul a fost copiat. Îl poți trimite mai departe.",
+    linkReady: "Linkul este mai jos. Selectează-l și copiază-l.",
     buyOneClick: "Cumpără cu un click",
     oneClickLead:
       "Lăsați numele și telefonul. Adresa este opțională. Opțiunile alese pentru oglindă ajung în administrare. Nu este nevoie de cont.",
@@ -120,6 +123,9 @@ const messages = {
     cartFull: "В корзине не больше 8 конфигураций.",
     cartMax: "Максимум 20 штук для этой конфигурации.",
     viewCart: "Открыть корзину",
+    copyLink: "Скопировать ссылку",
+    linkCopied: "Ссылка скопирована. Её можно отправить.",
+    linkReady: "Ссылка ниже. Выделите её и скопируйте.",
     buyOneClick: "Купить в один клик",
     oneClickLead:
       "Оставьте имя и телефон. Адрес необязателен. Выбранные параметры зеркала приходят в администрирование. Аккаунт не нужен.",

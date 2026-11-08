@@ -1,6 +1,10 @@
 import { computeGlassArea, resolveCurvedEdgeAddsMm } from "@/modules/pricing/engine/glass";
 import { ROUND_LED_PI } from "@/modules/pricing/engine/led-length";
 import { applyMarkup, roundMoney } from "@/modules/pricing/engine/money";
+import {
+  computeInstallCost,
+  INSTALL_MIN_CHARGE_MDL,
+} from "@/modules/pricing/engine/install";
 import { computeSandblastCost } from "@/modules/pricing/engine/sandblast";
 import { INSTALL_CATALOG_SEED } from "@/modules/materials/unpriced-catalog";
 import {
@@ -769,7 +773,18 @@ export function calculateMirrorPricing(
         }
         continue;
       }
-      const amount = roundMoney(serviceQuantity * service.unitPrice);
+      const installByArea = service.group === "install" && serviceUnit === "m²";
+      const amount = installByArea
+        ? computeInstallCost(
+            serviceQuantity,
+            service.unitPrice,
+            INSTALL_MIN_CHARGE_MDL,
+          )
+        : roundMoney(serviceQuantity * service.unitPrice);
+      if (installByArea) {
+        const ruleNote = `Minim ${INSTALL_MIN_CHARGE_MDL} MDL. Peste minim: ${roundMoney(service.unitPrice)} MDL/m².`;
+        serviceNote = serviceNote ? `${serviceNote} ${ruleNote}` : ruleNote;
+      }
       serviceAmounts.push(amount);
       serviceBuckets[serviceGroupKey(service.group)].push(amount);
       lines.push({

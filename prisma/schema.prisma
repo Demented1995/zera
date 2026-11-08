@@ -280,6 +280,7 @@ model MirrorModel {
   orderLines        CustomerOrderLine[]
   images            MirrorModelImage[]
   slugRedirects     MirrorModelSlugRedirect[]
+  configurationLinks ConfigurationLink[]
 
   @@index([status])
   @@index([categoryId])
@@ -287,6 +288,20 @@ model MirrorModel {
   @@index([name])
   @@index([slug])
   @@index([isPublished])
+}
+
+/// Public link for one customer configuration. Opening it restores dimensions and options.
+/// The price is calculated again and is not stored on the link.
+model ConfigurationLink {
+  token         String      @id
+  mirrorModelId String
+  mirrorModel   MirrorModel @relation(fields: [mirrorModelId], references: [id], onDelete: Cascade)
+  requestJson   Json
+  requestHash   String
+  createdAt     DateTime    @default(now())
+
+  @@unique([mirrorModelId, requestHash])
+  @@index([mirrorModelId])
 }
 
 /// Previous public slug of a published model. The future shop can answer 301 to the current slug.

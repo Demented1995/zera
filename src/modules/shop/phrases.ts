@@ -82,6 +82,7 @@ const RU: Record<string, string> = {
   "Adresa de livrare este obligatorie.": "Адрес доставки обязателен.",
   "Adresa este prea scurtă.": "Адрес слишком короткий.",
   "Datele cererii sunt invalide.": "Данные заявки недействительны.",
+  "Linkul nu a putut fi creat.": "Не удалось создать ссылку.",
   "Coșul conține linii duplicate.": "В корзине есть повторяющиеся позиции.",
 };
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConfiguratorFields } from "@/components/catalog/configurator-fields";
+import { formatMdl } from "@/modules/orders/public";
 import type {
   CustomerPreviewPayload,
   PreviewGalleryImage,
@@ -172,10 +173,7 @@ function PriceSummary({
 }) {
   const formatted =
     customer.price.available && customer.price.retailPrice != null
-      ? `${new Intl.NumberFormat("ro-RO", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(customer.price.retailPrice)} MDL`
+      ? formatMdl(customer.price.retailPrice)
       : null;
 
   return (
