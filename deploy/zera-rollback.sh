@@ -2,6 +2,10 @@
 # Restores the previously published code. Does not drop the database or delete photos.
 set -euo pipefail
 
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=safe.directory
+export GIT_CONFIG_VALUE_0=/opt/zera
+
 APP_DIR=/opt/zera
 MEDIA_DIR=/var/lib/zera/media
 PREVIOUS=/var/lib/zera-backup/previous-release

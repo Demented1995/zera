@@ -2,6 +2,10 @@
 # Publishes the approved revision. Never deletes photos or resets the database.
 set -euo pipefail
 
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=safe.directory
+export GIT_CONFIG_VALUE_0=/opt/zera
+
 APP_DIR=/opt/zera
 BRANCH=cursor/zera-stage7-1-product-photos-ec75
 MEDIA_DIR=/var/lib/zera/media
