@@ -311,6 +311,7 @@ export function ModelTechEditor({
           shapeId={selectedShape?.id}
           showTemperature={false}
           items={section.items}
+          checkExtrasWithLed
           onChange={(lighting) => update("lighting", lighting)}
         />
       );

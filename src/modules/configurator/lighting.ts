@@ -202,6 +202,19 @@ export function defaultLightingConfig(): LightingConfig {
   };
 }
 
+/** LED models start with every supplementary part on. Staff uncheck what the mirror does not use. */
+export function withLedTechnicalExtras(lighting: LightingConfig): LightingConfig {
+  return {
+    ...lighting,
+    transformerPcs: Math.max(1, lighting.transformerPcs),
+    extraComponents: lighting.extraComponents.map((item) => ({
+      ...item,
+      enabled: true,
+      qty: Math.max(1, item.qty),
+    })),
+  };
+}
+
 export function lightingUsesFront(type: LightingType): boolean {
   return type === "front" || type === "both";
 }

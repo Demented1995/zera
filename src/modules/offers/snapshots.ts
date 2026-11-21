@@ -128,6 +128,9 @@ export function summarizeTechFeatures(state: ConfiguratorState): OfferTechSummar
   if (state.processing.frameType !== "none") {
     features.push(`Ramă: ${state.processing.frameType}`);
   }
+  if (state.processing.fixing === "plugs") {
+    features.push("Tip montare: Cu dibluri");
+  }
   if (state.commercial.deliveryType !== "pickup") {
     features.push(`Livrare: ${state.commercial.deliveryType}`);
   }

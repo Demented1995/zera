@@ -720,6 +720,33 @@ describe("configurator Stage 5.4 commercial", () => {
     );
   });
 
+  it("charges plugs as a flat 250 lei extra outside the markup", () => {
+    const plain = quoteConfigurator({ state: state(), materials, rules });
+    const plugs = quoteConfigurator({
+      state: state({
+        processing: { ...defaultProcessingConfig(), fixing: "plugs" },
+      }),
+      materials,
+      rules,
+    });
+    const wide = quoteConfigurator({
+      state: state({
+        widthMm: 2000,
+        heightMm: 2000,
+        processing: { ...defaultProcessingConfig(), fixing: "plugs" },
+      }),
+      materials,
+      rules,
+    });
+    assert.equal(plugs.calculation?.financial?.services.other, 250);
+    assert.equal(plugs.calculation?.totalProductionCost, plain.calculation?.totalProductionCost);
+    assert.equal(
+      plugs.calculation?.financial?.offerRetail,
+      (plain.calculation?.financial?.offerRetail ?? 0) + 250,
+    );
+    assert.equal(wide.calculation?.financial?.services.other, 250);
+  });
+
   it("config without extra services remains complete", () => {
     const quote = quoteConfigurator({
       state: state(),

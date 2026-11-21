@@ -28,6 +28,8 @@ import {
   SANDBLAST_FINISHES,
   defaultProcessingConfig,
 } from "@/modules/configurator/processing";
+import type { MirrorFixingId } from "@/modules/configurator/fixing";
+import { MIRROR_FIXINGS } from "@/modules/configurator/fixing";
 import { getShapeById } from "@/modules/configurator/shapes";
 import { roundLei } from "@/modules/pricing/engine/money";
 
@@ -48,6 +50,7 @@ const SECTION_TITLES: Record<string, string> = {
   comfort: "Opțiuni",
   processing: "Prelucrări",
   extras: "Ramă și accesorii",
+  fixing: "Tip montare",
   services: "Servicii",
 };
 
@@ -106,6 +109,7 @@ export function coerceConfiguratorState(raw: unknown): ConfiguratorState | null 
     processing: {
       ...processingBase,
       ...value.processing,
+      fixing: value.processing?.fixing === "plugs" ? "plugs" : "adhesive",
       accessories: value.processing?.accessories ?? processingBase.accessories,
       branding: value.processing?.branding ?? processingBase.branding,
       cutouts: value.processing?.cutouts ?? processingBase.cutouts,
@@ -179,6 +183,7 @@ function sectionsFrom(controls: PreviewControl[]): PreviewSection[] {
 export function buildPreviewControls(
   rules: ConfiguratorRulesV1,
   config: ConfiguratorState,
+  options?: { fixingChoice?: boolean },
 ): PreviewControl[] {
   const controls: PreviewControl[] = [];
   const frontOn = lightingUsesFront(config.lighting.lightingType);
@@ -299,6 +304,9 @@ export function buildPreviewControls(
   pushDefogControls(controls, rules, config);
   pushProcessingControls(controls, rules, config);
   pushFrameAndAccessoryControls(controls, rules, config);
+  if (options?.fixingChoice) {
+    pushFixingControl(controls, config);
+  }
   pushCustomerServiceControls(controls, config);
 
   return controls;
@@ -407,6 +415,21 @@ function pushDiffuserControl(
     label: "Difuzor de iluminare",
     field: "diffuserEnabled",
     value: lightingDiffuserOn(config.lighting),
+  });
+}
+
+function pushFixingControl(controls: PreviewControl[], config: ConfiguratorState) {
+  const value: MirrorFixingId = config.processing.fixing === "plugs" ? "plugs" : "adhesive";
+  controls.push({
+    id: "fixing",
+    section: "fixing",
+    kind: "select",
+    mode: "EDITABLE",
+    label: "",
+    field: "fixing",
+    value,
+    options: MIRROR_FIXINGS.map((item) => ({ id: item.id, label: item.label })),
+    numeric: false,
   });
 }
 
@@ -859,6 +882,11 @@ export function selectionFromStates(
   if (installOn !== installDefault) {
     request.installEnabled = installOn;
   }
+  const fixing = config.processing.fixing === "plugs" ? "plugs" : "adhesive";
+  const defaultFixing = modelDefault.processing.fixing === "plugs" ? "plugs" : "adhesive";
+  if (fixing !== defaultFixing) {
+    request.fixing = fixing;
+  }
 
   if (config.processing.defogEnabled !== modelDefault.processing.defogEnabled) {
     request.defogEnabled = config.processing.defogEnabled;
@@ -981,6 +1009,7 @@ export function assembleMirrorPreview(input: {
   priceSource: PriceSource;
   blockers: string[];
   includeDiagnostic: boolean;
+  fixingChoice?: boolean;
   gallery?: PreviewGalleryImage[];
   productCopy?: PreviewProductCopy;
 }): {
@@ -988,7 +1017,9 @@ export function assembleMirrorPreview(input: {
   diagnostic: AdminPreviewDiagnostic | null;
 } {
   const config = clearInactiveComponents(input.validated.config);
-  const controls = buildPreviewControls(input.rules, config);
+  const controls = buildPreviewControls(input.rules, config, {
+    fixingChoice: input.fixingChoice,
+  });
   const unpriced = input.validated.rejected.find(
     (issue) => issue.code === "unpriced_option",
   );

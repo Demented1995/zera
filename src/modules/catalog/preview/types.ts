@@ -39,7 +39,8 @@ export type PreviewControl =
         | "frameType"
         | "facetShape"
         | "facetWidthMm"
-        | "sandblastFinish";
+        | "sandblastFinish"
+        | "fixing";
       value: string;
       options: PreviewChoice[];
       numeric: boolean;
@@ -193,7 +194,8 @@ export type PreviewPatch =
         | "defogControl"
         | "frameType"
         | "facetShape"
-        | "sandblastFinish";
+        | "sandblastFinish"
+        | "fixing";
       value: string;
     }
   | { field: "accessoryIds" | "logoIds"; value: string[] }

@@ -12,6 +12,7 @@ import {
   SWITCH_TYPES,
   lightingUsesBack,
   lightingUsesFront,
+  withLedTechnicalExtras,
   type ExtraComponentConfig,
   type LedSystemConfig,
   type LightingConfig,
@@ -37,6 +38,8 @@ type LightingSectionProps = {
   showTemperature?: boolean;
   /** Saved elements. Missing means every element stays visible, in the default order. */
   items?: ConfiguratorItemSetting[];
+  /** Model setup: choosing LED checks every supplementary component, including the transformer. */
+  checkExtrasWithLed?: boolean;
   onChange: (next: LightingConfig) => void;
 };
 
@@ -52,10 +55,16 @@ export function LightingSection({
   shapeId,
   showTemperature = true,
   items,
+  checkExtrasWithLed = false,
   onChange,
 }: LightingSectionProps) {
   function setLightingType(lightingType: LightingType) {
-    onChange({ ...lighting, lightingType });
+    const turningLedOn =
+      checkExtrasWithLed &&
+      lighting.lightingType === "none" &&
+      lightingType !== "none";
+    const next = turningLedOn ? withLedTechnicalExtras(lighting) : lighting;
+    onChange({ ...next, lightingType });
   }
 
   function patchFront(patch: Partial<LedSystemConfig>) {
@@ -284,29 +293,12 @@ export function LightingSection({
 
       {showElectrical && place("power") != null ? (
           <fieldset
-            className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2"
+            className="grid gap-3 rounded-lg border border-border p-3"
             style={{ order: place("power")! }}
           >
             <legend className="px-1 text-xs font-medium text-foreground">
               Alimentare
             </legend>
-            <div className="grid gap-1.5">
-              <Label htmlFor="transformerPcs">Transformatoare (buc.)</Label>
-              <Input
-                id="transformerPcs"
-                inputMode="numeric"
-                value={String(lighting.transformerPcs)}
-                onChange={(event) =>
-                  onChange({
-                    ...lighting,
-                    transformerPcs: Math.max(
-                      0,
-                      Math.floor(Number(event.target.value) || 0),
-                    ),
-                  })
-                }
-              />
-            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="electricalConnection">Conexiune electrică</Label>
               <select
@@ -340,6 +332,19 @@ export function LightingSection({
               Componente tehnice suplimentare
             </legend>
             <div className="grid gap-2">
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={lighting.transformerPcs > 0}
+                  onChange={(event) =>
+                    onChange({
+                      ...lighting,
+                      transformerPcs: event.target.checked ? 1 : 0,
+                    })
+                  }
+                />
+                <span>Transformator</span>
+              </label>
               {lighting.extraComponents.map((extra) => {
                 const meta = EXTRA_COMPONENTS.find((item) => item.id === extra.id)!;
                 return (

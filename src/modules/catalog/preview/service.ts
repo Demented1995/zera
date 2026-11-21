@@ -1,6 +1,7 @@
 import type { Role } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { SIMPLE_MIRROR_CATEGORY_SLUG } from "@/modules/configurator/fixing";
 import { canManageConfiguratorRules } from "@/modules/catalog/permissions";
 import {
   resolveConfiguratorRules,
@@ -36,6 +37,7 @@ export async function loadMirrorPreview(input: {
 }): Promise<PreviewActionResult> {
   const model = await prisma.mirrorModel.findUnique({
     where: { id: input.modelId },
+    include: { category: { select: { slug: true } } },
   });
   if (!model) {
     return { ok: false, message: "Modelul nu a fost găsit." };
@@ -54,6 +56,7 @@ export async function loadMirrorPreview(input: {
       select: { id: true, altText: true, isPrimary: true },
     }),
   ] as const;
+  const fixingChoice = model.category.slug === SIMPLE_MIRROR_CATEGORY_SLUG;
   const materials = await loadCatalogMaterialsForEngine();
   const validated = validateCustomerConfig({
     modelDefault,
@@ -61,6 +64,7 @@ export async function loadMirrorPreview(input: {
     request: input.request,
     materials,
     customerZerosUnset: true,
+    allowFixing: fixingChoice,
   });
   const pricedConfig = clearInactiveComponents(validated.config);
   const { calculation, blockers } = await recalculateFromConfigPayload(
@@ -92,6 +96,7 @@ export async function loadMirrorPreview(input: {
       includeDiagnostic:
         input.includeDiagnostic ??
         (input.role ? canManageConfiguratorRules(input.role) : false),
+      fixingChoice,
       gallery: galleryFrom(model.id, photos),
       productCopy: composeProductCopy({
         descriptionJson: model.descriptionJson,
@@ -129,6 +134,7 @@ export async function loadMirrorPreview(input: {
         rules,
         materials,
         pricingRules: toPricingRules(settings),
+        allowFixing: fixingChoice,
       }),
     },
     diagnostic: assembled.diagnostic,

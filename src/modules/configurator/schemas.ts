@@ -182,6 +182,7 @@ const processingSchema = z.object({
   frameType: z.enum(frameTypeIds).default("none"),
   frameConsumptionQty: nonNeg.default(0),
   mountingType: z.enum(mountingTypeIds).default("standard"),
+  fixing: z.enum(["adhesive", "plugs"]).default("adhesive"),
   mountingComponents: z
     .array(
       z.object({

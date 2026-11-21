@@ -10,6 +10,8 @@ import {
   type PricingRules,
   calculateMirrorPricing,
 } from "@/modules/pricing/engine";
+import { plugFixingExtraMdl } from "@/modules/configurator/fixing";
+import type { ServiceLine } from "@/modules/pricing/engine/types";
 import {
   getGlassTypeById,
   type ConfiguratorGlassType,
@@ -186,7 +188,10 @@ export function buildCalculationInput(options: {
     decorativeSandblastAreaM2: processingBuilt.decorativeSandblastAreaM2,
     laborLines: commercialBuilt.laborLines,
     packagingIncludedLines: commercialBuilt.packagingIncludedLines,
-    serviceLines: commercialBuilt.serviceLines,
+    serviceLines: [
+      ...commercialBuilt.serviceLines,
+      ...fixingServiceLines(state.processing.fixing, glassArea.areaM2),
+    ],
     materials:
       options.zeroUnsetSwitchPrice && !glassType.hasConfirmedPricing
         ? materials
@@ -198,6 +203,27 @@ export function buildCalculationInput(options: {
         : (glassType.materialSeedKey ?? undefined),
     zeroUnsetSwitchPrice: options.zeroUnsetSwitchPrice,
   };
+}
+
+function fixingServiceLines(
+  fixing: ConfiguratorState["processing"]["fixing"],
+  areaM2: number,
+): ServiceLine[] {
+  if (fixing !== "plugs") {
+    return [];
+  }
+  return [
+    {
+      key: "fixing-plugs",
+      label: "Dibluri",
+      quantity: 1,
+      unit: "fix",
+      unitPrice: plugFixingExtraMdl(areaM2),
+      group: "other",
+      required: true,
+      note: "Tarif fix pentru dibluri.",
+    },
+  ];
 }
 
 function emptyQuoteShell(options: {

@@ -5,16 +5,19 @@ import type { PublicModelCard } from "@/modules/shop/catalog";
 
 export function ProductCard({ model }: { model: PublicModelCard }) {
   return (
-    <article className="min-w-0 space-y-4">
-      <Link href={`/catalog/${model.slug}`} className="block space-y-4">
-        <div className="aspect-[4/5] overflow-hidden bg-muted">
+    <article className="group min-w-0">
+      <Link
+        href={`/catalog/${model.slug}`}
+        className="block space-y-4 transition duration-500 ease-out group-hover:-translate-y-1.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
+      >
+        <div className="aspect-[4/5] overflow-hidden bg-muted shadow-sm transition-shadow duration-500 group-hover:shadow-xl motion-reduce:transition-none">
           {model.image ? (
             // Authenticated cookies are not required; published display variants are public.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={model.image.src}
               alt={model.image.alt}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
             />
           ) : null}
         </div>

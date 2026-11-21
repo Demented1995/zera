@@ -1,3 +1,4 @@
+import type { MirrorFixingId } from "@/modules/configurator/fixing";
 import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
 import { ROUND_LED_PI } from "@/modules/pricing/engine/led-length";
 import { roundMoney } from "@/modules/pricing/engine/money";
@@ -222,6 +223,8 @@ export type ProcessingConfig = {
   frameConsumptionQty: number;
 
   mountingType: MountingTypeId;
+  /** Simple-mirror wall fixing. Lipire is included. Plugs add a flat customer extra. */
+  fixing: MirrorFixingId;
   /** Configurable mounting component lines (no auto fastener counts). */
   mountingComponents: Array<{
     label: string;
@@ -272,6 +275,7 @@ export function defaultProcessingConfig(): ProcessingConfig {
     frameType: "none",
     frameConsumptionQty: 0,
     mountingType: "standard",
+    fixing: "adhesive",
     mountingComponents: [
       { label: "Element fixare (configurabil)", qty: 0, materialSeedKey: null },
     ],

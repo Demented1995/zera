@@ -93,6 +93,8 @@ export type CustomerConfigRequest = {
   deliveryEnabled?: boolean;
   /** Use the installation service saved on the model. No tariff is invented. */
   installEnabled?: boolean;
+  /** Simple mirrors: adhesive is included, plugs add the flat extra. */
+  fixing?: "adhesive" | "plugs";
   defogEnabled?: boolean;
   defogSize?: string;
   defogControl?: string;

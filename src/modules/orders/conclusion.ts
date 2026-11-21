@@ -88,6 +88,10 @@ export function professionalConclusionRows(
     rows.push({ label: "Iluminare", value: summary.lightingLabel });
   }
   for (const feature of summary.features) {
+    if (feature.startsWith("Tip montare")) {
+      rows.push(featureRow(feature));
+      continue;
+    }
     const rule = FEATURE_RULES.find(
       (item) => feature === item.prefix || feature.startsWith(`${item.prefix}:`) || feature.startsWith(`${item.prefix} `),
     );

@@ -450,6 +450,8 @@ export function validateCustomerConfig(input: {
   materials?: CatalogMaterial[];
   /** Public site: an option without a tariff adds 0 and keeps the base price. */
   customerZerosUnset?: boolean;
+  /** Simple mirrors can choose lipire or dibluri. Other models ignore the field. */
+  allowFixing?: boolean;
 }): ValidateCustomerConfigResult {
   const rules = resolveConfiguratorRules(input.rules);
   const config = cloneState(input.modelDefault);
@@ -743,6 +745,10 @@ export function validateCustomerConfig(input: {
     input.materials,
     input.customerZerosUnset,
   );
+  if (input.allowFixing && request.fixing !== undefined && request.fixing !== config.processing.fixing) {
+    config.processing.fixing = request.fixing;
+    applied.push("fixing");
+  }
 
   // Defog
   if (request.defogEnabled !== undefined) {

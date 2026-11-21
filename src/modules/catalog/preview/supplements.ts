@@ -20,6 +20,7 @@ type QuoteInput = {
   rules: ConfiguratorRulesV1;
   materials: CatalogMaterial[];
   pricingRules: PricingRules;
+  allowFixing?: boolean;
 };
 
 /**
@@ -41,6 +42,7 @@ export function applyRetailSupplements(input: QuoteInput): PreviewControl[] {
       request,
       materials: input.materials,
       customerZerosUnset: true,
+      allowFixing: input.allowFixing,
     });
     if (
       !validated.ok ||

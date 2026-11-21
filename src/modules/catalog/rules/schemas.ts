@@ -68,6 +68,7 @@ export const customerConfigRequestSchema = z
     diffuserEnabled: z.boolean().optional(),
     deliveryEnabled: z.boolean().optional(),
     installEnabled: z.boolean().optional(),
+    fixing: z.enum(["adhesive", "plugs"]).optional(),
     defogEnabled: z.boolean().optional(),
     defogSize: z.string().optional(),
     defogControl: z.string().optional(),

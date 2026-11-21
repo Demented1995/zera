@@ -1,6 +1,7 @@
 import { Prisma, type MirrorStatus, type OrderStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { SIMPLE_MIRROR_CATEGORY_SLUG } from "@/modules/configurator/fixing";
 import {
   resolveConfiguratorRules,
   validateCustomerConfig,
@@ -43,6 +44,7 @@ export async function quoteOrderConfiguration(input: {
       status: true,
       configJson: true,
       configuratorRulesJson: true,
+      category: { select: { slug: true } },
       images: {
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
         take: 1,
@@ -70,6 +72,7 @@ export async function quoteOrderConfiguration(input: {
     request: input.request,
     materials,
     customerZerosUnset: true,
+    allowFixing: model.category.slug === SIMPLE_MIRROR_CATEGORY_SLUG,
   });
   if (!validated.ok || validated.rejected.length > 0) {
     return {
