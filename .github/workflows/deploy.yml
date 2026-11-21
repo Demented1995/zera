@@ -2,14 +2,57 @@ name: Publish ZERA
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: Approved server action
+        required: true
+        type: choice
+        default: publish
+        options:
+          - publish
+          - rollback
+
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  verify:
+    if: inputs.action == 'publish'
     runs-on: ubuntu-latest
     steps:
-      - name: Publish the approved revision
+      - name: Check out the live branch
+        uses: actions/checkout@v4
+        with:
+          ref: cursor/zera-stage7-1-product-photos-ec75
+
+      - name: Use the same Node.js release as the server
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build
+        env:
+          DATABASE_URL: postgresql://build:build@127.0.0.1:5432/build
+          AUTH_SECRET: ci-build-not-used-at-runtime
+          AUTH_URL: http://127.0.0.1:3000
+        run: |
+          npm ci
+          npx prisma generate
+          npm run build
+
+  publish:
+    needs: verify
+    if: always() && (inputs.action == 'rollback' || needs.verify.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the approved action
         run: |
           install -d -m 700 ~/.ssh
           printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/zera
           chmod 600 ~/.ssh/zera
-          ssh -i ~/.ssh/zera -o StrictHostKeyChecking=accept-new root@185.174.255.57 /usr/local/sbin/zera-deploy
+          ssh -i ~/.ssh/zera \
+            -o StrictHostKeyChecking=accept-new \
+            -o IdentitiesOnly=yes \
+            zera-publish@185.174.255.57 \
+            "${{ inputs.action }}"
