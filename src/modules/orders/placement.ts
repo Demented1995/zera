@@ -103,7 +103,7 @@ export function parseMirrorPlacement(raw: unknown): { ok: true; placement: Mirro
 export function touchPlacementLabel(placement: MirrorPlacement): string {
   const vertical = TOUCH_VERTICAL.find((item) => item.id === placement.touchVertical)?.label;
   const horizontal = TOUCH_HORIZONTAL.find((item) => item.id === placement.touchHorizontal)?.label;
-  const parts = [vertical, horizontal].filter((item): item is string => Boolean(item));
+  const parts = [vertical, horizontal].filter((item) => item != null);
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
 

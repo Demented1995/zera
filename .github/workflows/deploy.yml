@@ -1,0 +1,15 @@
+name: Publish ZERA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the approved revision
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/zera
+          chmod 600 ~/.ssh/zera
+          ssh -i ~/.ssh/zera -o StrictHostKeyChecking=accept-new root@185.174.255.57 /usr/local/sbin/zera-deploy
