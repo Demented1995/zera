@@ -317,6 +317,32 @@ export function frameLengthM(
   return { meters: perimeter, note: "Lungime = perimetrul oglinzii." };
 }
 
+/**
+ * Outline billed for ramă plastic and ABS.
+ * Rectangle and arcade use 2 × (width + height). Round uses diameter × 3.14.
+ * Other special shapes stay unconfirmed.
+ */
+export function componentPerimeterM(
+  widthMm: number,
+  heightMm: number,
+  shapeIsRectangular: boolean,
+  shapeId?: string,
+): number | null {
+  if (shapeId === "round") {
+    if (!(widthMm > 0)) {
+      return null;
+    }
+    return roundMoney((widthMm * ROUND_LED_PI) / 1000);
+  }
+  if (!(shapeIsRectangular || shapeId === "arcade")) {
+    return null;
+  }
+  if (!(widthMm > 0) || !(heightMm > 0)) {
+    return null;
+  }
+  return roundMoney((2 * (widthMm + heightMm)) / 1000);
+}
+
 /** Rectangular outline in meters. Special shapes have no confirmed perimeter. */
 export function mirrorPerimeterM(
   widthMm: number,

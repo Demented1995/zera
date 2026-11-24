@@ -43,3 +43,12 @@ export function assertCanActivate(
   }
   return null;
 }
+
+/** Names the missing information instead of only saying the calculation is incomplete. */
+export function describeActivationBlock(block: string, reasons: string[]): string {
+  const unique = [...new Set(reasons.map((item) => item.trim()).filter(Boolean))];
+  if (unique.length === 0) {
+    return block;
+  }
+  return `Nu se poate activa. Lipsește: ${unique.join("; ")}.`;
+}

@@ -2,14 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   LIGHTING_TYPES,
   lightingUsesBack,
   lightingUsesFront,
@@ -17,6 +9,7 @@ import {
 import type { ConfiguratorQuote } from "@/modules/configurator/map-to-engine";
 import { frameLengthM } from "@/modules/configurator/processing";
 import { roundMoney } from "@/modules/pricing/engine";
+import type { CostLine } from "@/modules/pricing/engine/types";
 
 type SummaryPanelProps = {
   quote: ConfiguratorQuote | null;
@@ -75,7 +68,7 @@ export function SummaryPanel({
     ].some((value) => value !== 0 || value === null);
 
   return (
-    <aside className="space-y-3 rounded-xl border border-border bg-card p-3 lg:sticky lg:top-20">
+    <aside className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-3 lg:sticky lg:top-20">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-foreground">Sumar</h2>
         <StatusBadge status={status} pending={pending} />
@@ -322,64 +315,89 @@ export function SummaryPanel({
       ) : null}
 
       {quote && quote.blockers.length > 0 ? (
-        <div className="rounded-lg border border-border px-3 py-2 text-sm">
+        <div className="space-y-2 rounded-lg border border-border px-3 py-2 text-sm">
           <p className="font-medium text-foreground">Informații lipsă</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-muted-foreground">
+          <ul className="space-y-2">
             {quote.blockers.map((item) => (
-              <li key={item}>{item}</li>
+              <li
+                key={item}
+                className="break-words rounded-md border border-border/70 px-2.5 py-2 text-muted-foreground"
+              >
+                {item}
+              </li>
             ))}
           </ul>
         </div>
       ) : null}
 
       {calc && calc.missingCosts.length > 0 ? (
-        <div className="rounded-lg border border-border px-3 py-2 text-sm">
+        <div className="space-y-2 rounded-lg border border-border px-3 py-2 text-sm">
           <p className="font-medium text-foreground">Costuri lipsă</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-muted-foreground">
+          <ul className="space-y-2">
             {calc.missingCosts.map((item) => (
-              <li key={item}>{item}</li>
+              <li
+                key={item}
+                className="break-words rounded-md border border-border/70 px-2.5 py-2 text-muted-foreground"
+              >
+                {item}
+              </li>
             ))}
           </ul>
         </div>
       ) : null}
 
       {calc && calc.lines.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Linie</TableHead>
-                <TableHead>Sumă</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {calc.lines.map((line) => (
-                <TableRow key={`${line.kind}-${line.key}`}>
-                  <TableCell className="text-sm">
-                    <div className="font-medium">{line.label}</div>
-                    {line.note ? (
-                      <div className="text-xs text-muted-foreground">
-                        {line.note}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">Detaliu pe linii</p>
+          <ul className="space-y-2">
+            {calc.lines.map((line) => (
+              <li
+                key={`${line.kind}-${line.key}`}
+                className="rounded-lg border border-border px-3 py-2.5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 break-words text-sm font-medium text-foreground">
+                    {line.label}
+                  </p>
+                  <p className="shrink-0 text-sm font-medium text-foreground">
                     {money(line.amount)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </p>
+                </div>
+                {lineDetail(line) ? (
+                  <p className="mt-1 break-words text-xs text-muted-foreground">
+                    {lineDetail(line)}
+                  </p>
+                ) : null}
+                {line.note ? (
+                  <p className="mt-1 break-words text-xs text-muted-foreground">
+                    {line.note}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </aside>
   );
 }
 
+function lineDetail(line: CostLine): string | null {
+  if (line.quantity == null) {
+    return null;
+  }
+  const qty = Number.isInteger(line.quantity)
+    ? String(line.quantity)
+    : line.quantity.toFixed(2);
+  const unit = line.unit ? ` ${line.unit}` : "";
+  const price = line.unitPrice != null ? ` × ${money(line.unitPrice)}` : "";
+  return `${qty}${unit}${price}`;
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/70 py-1.5 last:border-0">
-      <dt className="text-muted-foreground">{label}</dt>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-border/70 py-2 last:border-0">
+      <dt className="min-w-0 break-words text-muted-foreground">{label}</dt>
       <dd className="text-right font-medium text-foreground">{value}</dd>
     </div>
   );

@@ -477,8 +477,9 @@ export function calculateMirrorPricing(
     );
     if (priced.quantity === 0) {
       if (detail.required) {
-        const reason =
-          priced.note ?? detail.note ?? `${detail.label}: cantitate / lungime de confirmat`;
+        const reason = priced.note
+          ? `${detail.label}: ${priced.note}`
+          : (detail.note ?? `${detail.label}: cantitate / lungime de confirmat`);
         missingCosts.push(reason);
         componentAmounts.push(null);
         lines.push({

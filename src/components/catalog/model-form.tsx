@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { ModelRulesEditor } from "@/components/catalog/model-rules-editor";
@@ -82,6 +82,8 @@ export function ModelForm({
     (initial?.config as unknown as Record<string, unknown>) ?? {},
   );
   const [dirty, setDirty] = useState(false);
+  const [gaps, setGaps] = useState<string[]>([]);
+  const techReady = useRef(false);
 
   const tabs = useMemo(() => {
     const items: Array<{ id: TabId; label: string }> = [
@@ -137,6 +139,9 @@ export function ModelForm({
         sourceConfigurationId: sourceConfigurationId || null,
       });
       if (!result.ok) {
+        if (status === "ACTIVE") {
+          setTab("status");
+        }
         toast.error(result.message);
         return;
       }
@@ -272,17 +277,22 @@ export function ModelForm({
         </section>
       ) : null}
 
-      {tab === "tech" ? (
+      <div className={tab === "tech" ? undefined : "hidden"}>
         <ModelTechEditor
           initialState={initial?.config ?? null}
           canEditTariffs={canEditTariffs}
           sections={sections}
+          onGaps={setGaps}
           onChange={(payload) => {
-            markDirty();
             setConfigPayload(payload);
+            if (techReady.current) {
+              markDirty();
+            } else {
+              techReady.current = true;
+            }
           }}
         />
-      ) : null}
+      </div>
 
       {tab === "rules" && initial?.id ? (
         <ModelRulesEditor
@@ -316,11 +326,22 @@ export function ModelForm({
               <option value="ARCHIVED">Arhivat</option>
             </select>
             <p className="text-xs text-muted-foreground">
-              „Activ” ≠ publicat pe site. Activarea este blocată dacă calculul este
-              incomplet sau configurația tehnică este invalidă.
+              „Activ” ≠ publicat pe site. Dacă lipsește ceva, lista apare sub formular
+              și la salvare.
             </p>
           </div>
         </section>
+      ) : null}
+
+      {tab !== "rules" && gaps.length > 0 ? (
+        <div className="max-w-xl rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+          <p className="font-medium">Înainte de activare lipsește</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {gaps.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {tab !== "rules" ? (

@@ -36,6 +36,7 @@ import { homepageSelectionMessage } from "@/modules/shop/homepage";
 import { isValidSlug, slugifyModelName } from "@/modules/catalog/slug";
 import {
   assertCanActivate,
+  describeActivationBlock,
   deriveCalcStatus,
 } from "@/modules/catalog/status";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
@@ -258,12 +259,18 @@ export async function saveMirrorModelAction(
     }
     const block = assertCanActivate(calcStatus, state.widthMm, state.heightMm);
     if (block) {
-      return { ok: false, message: block };
+      return {
+        ok: false,
+        message: describeActivationBlock(block, [
+          ...(calculation?.missingCosts ?? []),
+          ...blockers,
+        ]),
+      };
     }
     if (blockers.length > 0) {
       return {
         ok: false,
-        message: `Configurație tehnică invalidă: ${blockers.slice(0, 3).join("; ")}`,
+        message: describeActivationBlock("Configurație tehnică invalidă.", blockers),
       };
     }
   }

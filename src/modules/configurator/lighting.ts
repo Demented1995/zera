@@ -1,3 +1,4 @@
+import { componentPerimeterM } from "@/modules/configurator/processing";
 import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
 import { MATERIAL_SEED_KEYS } from "@/modules/pricing/engine";
 import {
@@ -445,6 +446,10 @@ export function buildLightingDetailedComponents(options: {
           ? "spate"
           : "comun";
     const isDiffuser = (LIGHTING_DIFFUSER_IDS as readonly string[]).includes(extra.id);
+    const onPerimeter = extra.id === "plastic-frame" || extra.id === "abs";
+    const perimeterM = onPerimeter
+      ? componentPerimeterM(widthMm, heightMm, shapeIsRectangular, shapeId)
+      : null;
     const ledSide =
       extra.side === "front" || extra.side === "back"
         ? extra.side
@@ -456,14 +461,22 @@ export function buildLightingDetailedComponents(options: {
       key: `extra-${extra.id}-${extra.side}`,
       label: `${meta?.label ?? extra.id} (${sideLabel})`,
       seedKey: meta?.materialSeedKey ?? null,
-      quantity: isDiffuser ? (ledLength?.totalLengthM ?? 0) : extra.qty,
-      unit: isDiffuser ? "metru" : "bucată",
+      quantity: isDiffuser
+        ? (ledLength?.totalLengthM ?? 0)
+        : onPerimeter
+          ? (perimeterM ?? 0)
+          : extra.qty,
+      unit: isDiffuser || onPerimeter ? "metru" : "bucată",
       group: "accessory",
       note: isDiffuser
         ? ledLength
           ? `Aceeași lungime ca banda LED: ${ledLength.totalLengthM.toFixed(2)} m`
           : "Lungimea difuzorului urmează banda LED, care nu este confirmată."
-        : undefined,
+        : onPerimeter
+          ? perimeterM != null
+            ? "Lungime = perimetrul oglinzii."
+            : "Metru liniar neconfirmat pentru această formă."
+          : undefined,
       required: true,
     });
     if (!meta?.materialSeedKey) {

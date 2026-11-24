@@ -131,6 +131,7 @@ type Props = {
   /** Same saved structure as the professional configurator. */
   sections?: ConfiguratorSectionSetting[];
   onChange: (payload: Record<string, unknown>) => void;
+  onGaps?: (items: string[]) => void;
 };
 
 /**
@@ -141,6 +142,7 @@ export function ModelTechEditor({
   canEditTariffs = false,
   sections = defaultConfiguratorLayout(),
   onChange,
+  onGaps,
 }: Props) {
   const [form, setForm] = useState<FormState>(
     initialState ? formFromState(initialState) : INITIAL,
@@ -229,6 +231,7 @@ export function ModelTechEditor({
 
   useEffect(() => {
     if (!parsed.ok || !requestKey) {
+      onGaps?.(parsed.ok ? [] : [parsed.message]);
       onChange({});
       return;
     }
@@ -238,6 +241,7 @@ export function ModelTechEditor({
         const result = await runConfiguratorQuoteAction(parsed.quotePayload);
         if (result.ok) {
           setQuote(result.quote);
+          onGaps?.(quoteGaps(result.quote));
         }
       });
     }, 220);
@@ -437,4 +441,14 @@ export function ModelTechEditor({
       />
     </div>
   );
+}
+
+function quoteGaps(quote: ConfiguratorQuote): string[] {
+  return [
+    ...new Set(
+      [...(quote.calculation?.missingCosts ?? []), ...quote.blockers]
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
 }

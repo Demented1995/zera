@@ -411,6 +411,60 @@ describe("catalog unit decides the quantity", () => {
     assert.equal(profile?.unit, "bucată");
     assert.equal(profile?.amount, 120);
   });
+
+  it("keeps the arcade perimeter already set on plastic and ABS", () => {
+    const materials: CatalogMaterial[] = [
+      ...catalog,
+      {
+        seedKey: "rama-plastic",
+        name: "Ramă plastic",
+        unitPrice: 20,
+        unitOfMeasure: "metru",
+        isActive: true,
+      },
+      {
+        seedKey: "abs",
+        name: "ABS",
+        unitPrice: 10,
+        unitOfMeasure: "metru",
+        isActive: true,
+      },
+    ];
+    const result = calculateMirrorPricing(
+      baseInput({
+        shape: "SPECIAL",
+        shapeId: "arcade",
+        widthMm: 600,
+        heightMm: 1000,
+        materials,
+        detailedComponents: [
+          {
+            key: "extra-plastic-frame",
+            label: "Ramă plastic",
+            seedKey: "rama-plastic",
+            quantity: 3.2,
+            unit: "metru",
+            group: "accessory",
+            required: true,
+          },
+          {
+            key: "extra-abs",
+            label: "ABS",
+            seedKey: "abs",
+            quantity: 3.2,
+            unit: "metru",
+            group: "accessory",
+            required: true,
+          },
+        ],
+      }),
+    );
+    assert.equal(result.status, "COMPLETE");
+    assert.equal(result.lines.find((line) => line.key === "extra-plastic-frame")?.quantity, 3.2);
+    assert.equal(result.lines.find((line) => line.key === "extra-abs")?.quantity, 3.2);
+    assert.equal(result.lines.find((line) => line.key === "extra-plastic-frame")?.amount, 64);
+    assert.equal(result.lines.find((line) => line.key === "extra-abs")?.amount, 32);
+  });
 });
 
 describe("installation charge", () => {

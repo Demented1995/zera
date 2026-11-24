@@ -14,6 +14,7 @@ import { isValidSlug, slugifyModelName } from "@/modules/catalog/slug";
 import {
   assertCanActivate,
   deriveCalcStatus,
+  describeActivationBlock,
 } from "@/modules/catalog/status";
 import { defaultCommercialConfig } from "@/modules/configurator/commercial";
 import { defaultLightingConfig } from "@/modules/configurator/lighting";
@@ -80,6 +81,14 @@ describe("Stage 6.1 catalog helpers", () => {
     assert.match(
       assertCanActivate("INCOMPLETE", 600, 800) ?? "",
       /Calcul incomplet/,
+    );
+    assert.match(
+      describeActivationBlock(assertCanActivate("INCOMPLETE", 600, 800) ?? "", [
+        "Ramă aluminiu: tarif / material lipsă",
+        "Ramă aluminiu: tarif / material lipsă",
+        "  ",
+      ]),
+      /Nu se poate activa\. Lipsește: Ramă aluminiu: tarif \/ material lipsă\.$/,
     );
     assert.match(assertCanActivate("COMPLETE", 0, 800) ?? "", /pozitive/);
   });
