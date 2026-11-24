@@ -13,6 +13,7 @@ import {
 import { plugFixingExtraMdl } from "@/modules/configurator/fixing";
 import type { ServiceLine } from "@/modules/pricing/engine/types";
 import {
+  CONFIGURATOR_GLASS_TYPES,
   getGlassTypeById,
   type ConfiguratorGlassType,
 } from "@/modules/configurator/glass-types";
@@ -64,7 +65,7 @@ export type ConfiguratorQuote = {
   calculation: CalculationResult | null;
 };
 
-function glassCatalogReady(
+export function glassCatalogReady(
   glassType: ConfiguratorGlassType,
   materials: CatalogMaterial[],
 ): boolean {
@@ -78,6 +79,13 @@ function glassCatalogReady(
       material.unitPrice !== null &&
       material.unitOfMeasure !== UNCONFIRMED_UOM,
   );
+}
+
+/** Glass types whose catalog material has an active price. Standard is always included. */
+export function pricedGlassTypeIds(materials: CatalogMaterial[]): string[] {
+  return CONFIGURATOR_GLASS_TYPES.filter((type) =>
+    glassCatalogReady(type, materials),
+  ).map((type) => type.id);
 }
 
 function applyGlassTypeToCatalog(

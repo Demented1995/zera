@@ -125,6 +125,8 @@ type ConfiguratorWorkspaceProps = {
   onSaveParameters?: (
     payload: Record<string, unknown>,
   ) => Promise<{ ok: boolean; message: string }>;
+  /** Glass type ids that already have a catalog price. */
+  pricedGlassTypeIds?: readonly string[];
 };
 
 function formFromState(state: ConfiguratorState): FormState {
@@ -151,6 +153,7 @@ export function ConfiguratorWorkspace({
   initialConfigName = null,
   initialState = null,
   onSaveParameters,
+  pricedGlassTypeIds = [],
 }: ConfiguratorWorkspaceProps) {
   const [form, setForm] = useState<FormState>(
     initialState ? formFromState(initialState) : INITIAL,
@@ -364,7 +367,7 @@ export function ConfiguratorWorkspace({
               {CONFIGURATOR_GLASS_TYPES.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.label}
-                  {!type.hasConfirmedPricing ? " — preț neconfigurat" : ""}
+                  {pricedGlassTypeIds.includes(type.id) ? "" : " — fără preț"}
                 </option>
               ))}
             </select>

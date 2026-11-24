@@ -13,12 +13,14 @@ export function OrderMirrorEditor({
   initialState,
   sections,
   canEditTariffs,
+  pricedGlassTypeIds,
 }: {
   orderId: string;
   mirrorKey: string;
   initialState: ConfiguratorState;
   sections: ConfiguratorSectionSetting[];
   canEditTariffs: boolean;
+  pricedGlassTypeIds: readonly string[];
 }) {
   const router = useRouter();
 
@@ -27,6 +29,7 @@ export function OrderMirrorEditor({
       canEditTariffs={canEditTariffs}
       sections={sections}
       initialState={initialState}
+      pricedGlassTypeIds={pricedGlassTypeIds}
       onSaveParameters={async (payload) => {
         const result = await saveOrderMirrorAction({ orderId, mirrorKey, config: payload });
         if (result.ok) {

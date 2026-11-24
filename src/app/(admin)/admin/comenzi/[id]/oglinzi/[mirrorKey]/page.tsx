@@ -6,7 +6,9 @@ import { MirrorPlacementForm } from "@/components/orders/mirror-placement-form";
 import { MirrorStatusSelect } from "@/components/orders/mirror-status-select";
 import { OrderMirrorEditor } from "@/components/orders/order-mirror-editor";
 import { RemoveOrderMirror } from "@/components/orders/remove-order-mirror";
+import { pricedGlassTypeIds } from "@/modules/configurator/map-to-engine";
 import { getConfiguratorLayout } from "@/modules/configurator/layout-store";
+import { loadCatalogMaterialsForEngine } from "@/modules/pricing/queries";
 import { requireStaffSession } from "@/lib/auth/guards";
 import { canManageOrders } from "@/modules/orders/permissions";
 import { getOrderMirror } from "@/modules/orders/queries";
@@ -26,9 +28,10 @@ export default async function OglindaComenziiPage({ params }: PageProps) {
     redirect("/admin");
   }
   const { id, mirrorKey } = await params;
-  const [mirror, sections] = await Promise.all([
+  const [mirror, sections, materials] = await Promise.all([
     getOrderMirror(id, mirrorKey),
     getConfiguratorLayout(),
+    loadCatalogMaterialsForEngine(),
   ]);
   if (!mirror) {
     notFound();
@@ -80,6 +83,7 @@ export default async function OglindaComenziiPage({ params }: PageProps) {
           initialState={mirror.config}
           sections={sections}
           canEditTariffs={session.user.role === "ADMIN"}
+          pricedGlassTypeIds={pricedGlassTypeIds(materials)}
         />
       ) : (
         <p className="text-sm text-muted-foreground">Configurația salvată nu poate fi editată.</p>

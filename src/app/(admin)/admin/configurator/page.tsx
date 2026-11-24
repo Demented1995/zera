@@ -6,7 +6,9 @@ import { requireStaffSession } from "@/lib/auth/guards";
 import { getConfiguratorLayout } from "@/modules/configurator/layout-store";
 import { getMirrorModel } from "@/modules/catalog/queries";
 import type { ConfiguratorState } from "@/modules/configurator/map-to-engine";
+import { pricedGlassTypeIds } from "@/modules/configurator/map-to-engine";
 import { getSavedConfiguration } from "@/modules/offers/queries";
+import { loadCatalogMaterialsForEngine } from "@/modules/pricing/queries";
 
 export const metadata = {
   title: "Configurator profesional",
@@ -46,7 +48,11 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
     }
   }
 
-  const sections = await getConfiguratorLayout();
+  const [sections, materials] = await Promise.all([
+    getConfiguratorLayout(),
+    loadCatalogMaterialsForEngine(),
+  ]);
+  const pricedGlassIds = pricedGlassTypeIds(materials);
 
   return (
     <div className="space-y-4">
@@ -68,6 +74,7 @@ export default async function ConfiguratorPage({ searchParams }: PageProps) {
         initialConfigCode={initialConfigCode}
         initialConfigName={initialConfigName}
         initialState={initialState}
+        pricedGlassTypeIds={pricedGlassIds}
       />
     </div>
   );

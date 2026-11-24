@@ -11,7 +11,7 @@ import {
   defaultLightingConfig,
   type LightingConfig,
 } from "@/modules/configurator/lighting";
-import { quoteConfigurator } from "@/modules/configurator/map-to-engine";
+import { pricedGlassTypeIds, quoteConfigurator } from "@/modules/configurator/map-to-engine";
 import {
   defaultProcessingConfig,
   type ProcessingConfig,
@@ -222,6 +222,23 @@ describe("configurator Stage 5.1 glass quotes", () => {
     assert.equal(quote.calculation?.status, "COMPLETE");
     assert.equal(quote.calculation?.processing?.defog, 0);
     assert.equal(quote.calculation?.glassCost, 360);
+  });
+
+  it("lists only glass types that have a catalog price", () => {
+    assert.deepEqual(pricedGlassTypeIds(materials), ["standard"]);
+    assert.deepEqual(
+      pricedGlassTypeIds([
+        ...materials,
+        {
+          seedKey: UNPRICED_SEED.glassBronz,
+          name: "Sticlă Bronz",
+          unitPrice: 700,
+          unitOfMeasure: "m²",
+          isActive: true,
+        },
+      ]),
+      ["standard", "bronz"],
+    );
   });
 
   it("prices non-standard glass from its own catalog material", () => {
