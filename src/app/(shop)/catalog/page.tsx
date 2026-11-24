@@ -56,7 +56,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
       {catalog.rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(locale, "noMatches")}</p>
       ) : (
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:gap-10 lg:grid-cols-3">
           {catalog.rows.map((model) => (
             <ProductCard key={model.id} model={model} />
           ))}

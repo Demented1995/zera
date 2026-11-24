@@ -9,6 +9,7 @@ import { getShopLocale } from "@/modules/shop/locale";
 import { t } from "@/modules/shop/messages";
 import { readSharedConfiguration } from "@/modules/shop/share";
 import { quotePublicProduct } from "@/modules/shop/service";
+import { getCompanySettings } from "@/modules/offers/company";
 import { jsonForScript, publicSiteUrl } from "@/modules/shop/site";
 
 type PageProps = {
@@ -48,7 +49,11 @@ export default async function PublicProductPage({ params, searchParams }: PagePr
     params,
     searchParams ? searchParams : Promise.resolve({} as { c?: string }),
   ]);
-  const [model, locale] = await Promise.all([findSellableBySlug(slug), getShopLocale()]);
+  const [model, locale, company] = await Promise.all([
+    findSellableBySlug(slug),
+    getShopLocale(),
+    getCompanySettings(),
+  ]);
   if (!model) {
     const nextSlug = await findPublicSlugRedirect(slug);
     if (nextSlug) {
@@ -103,7 +108,13 @@ export default async function PublicProductPage({ params, searchParams }: PagePr
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:py-14">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonForScript(structured) }} />
-      <ShopProduct modelId={model.id} slug={model.slug} initial={preview.customer} locale={locale} />
+      <ShopProduct
+        modelId={model.id}
+        slug={model.slug}
+        initial={preview.customer}
+        locale={locale}
+        phone={company.phone}
+      />
     </div>
   );
 }

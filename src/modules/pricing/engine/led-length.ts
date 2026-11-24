@@ -23,7 +23,7 @@ export type LedLengthComputation = {
   /** Total billable meters after 10%. */
   totalLengthM: number;
   /** How the base length was obtained. */
-  source: "auto-rectangular" | "auto-round" | "manual" | "unconfirmed";
+  source: "auto-rectangular" | "auto-round" | "auto-arcade" | "manual" | "unconfirmed";
   note?: string;
 };
 
@@ -68,10 +68,22 @@ export function applyLedLengthSupplement(baseLengthMm: number): LedLengthComputa
   };
 }
 
+/** Arcade LED base: the mirror perimeter, same as a rectangle. */
+export function computeArcadeLedBaseMm(
+  widthMm: number,
+  heightMm: number,
+): number | null {
+  if (!(widthMm > 0) || !(heightMm > 0)) {
+    return null;
+  }
+  return 2 * (widthMm + heightMm);
+}
+
 /**
  * Resolve LED length for a system.
  * - Rectangular mirrors: auto from positioning.
  * - Round mirrors: diameter × 3.14, then the same 10% reserve.
+ * - Arcade: mirror perimeter, then the same 10% reserve.
  * - Other special shapes: require a manual base mm
  *   (10% applied once on that base — never doubled).
  */
@@ -103,6 +115,20 @@ export function resolveLedLength(options: {
       ...applyLedLengthSupplement(widthMm * ROUND_LED_PI),
       source: "auto-round",
       note: "Rotund: diametru × 3,14, apoi rezerva de 10%.",
+    };
+  }
+
+  if (shapeId === "arcade") {
+    const baseMm = computeArcadeLedBaseMm(widthMm, heightMm);
+    if (baseMm == null) {
+      return {
+        error: "Lungime LED de confirmat — dimensiunile arcadei nu sunt setate.",
+      };
+    }
+    return {
+      ...applyLedLengthSupplement(baseMm),
+      source: "auto-arcade",
+      note: "Arcadă: perimetrul oglinzii, apoi rezerva de 10%.",
     };
   }
 

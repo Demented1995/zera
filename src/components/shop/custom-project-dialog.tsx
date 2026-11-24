@@ -55,6 +55,8 @@ export function CustomProjectDialog({ locale }: { locale: ShopLocale }) {
     <>
       <Button
         type="button"
+        size="lg"
+        className="bg-background text-foreground hover:bg-background/90"
         onClick={() => {
           setError(null);
           setOpen(true);

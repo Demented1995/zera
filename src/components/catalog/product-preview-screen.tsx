@@ -39,6 +39,7 @@ type Props = {
   cartNote?: string | null;
   orderContextNote?: string;
   locale?: import("@/modules/shop/locale").ShopLocale;
+  phone?: string | null;
 };
 
 export function ProductPreviewScreen({
@@ -52,6 +53,7 @@ export function ProductPreviewScreen({
   cartNote,
   orderContextNote,
   locale = "ro",
+  phone = null,
 }: Props) {
   const [customer, setCustomer] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -95,6 +97,7 @@ export function ProductPreviewScreen({
         cartNote={cartNote}
         orderContextNote={orderContextNote}
         locale={locale}
+        phone={phone}
         share={slug ? { modelId, slug } : null}
         onAddToCart={
           onAddToCart

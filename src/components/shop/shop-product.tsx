@@ -21,11 +21,13 @@ export function ShopProduct({
   slug,
   initial,
   locale = "ro",
+  phone = null,
 }: {
   modelId: string;
   slug: string;
   initial: CustomerPreviewPayload;
   locale?: ShopLocale;
+  phone?: string | null;
 }) {
   const cart = useCart();
   const [note, setNote] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function ShopProduct({
       placeOneClick={placeOneClickOrderAction}
       cartNote={note}
       locale={locale}
+      phone={phone}
       onAddToCart={(draft) => {
         const result = cart.add(draft);
         const key = CART_NOTE[result as keyof typeof CART_NOTE];

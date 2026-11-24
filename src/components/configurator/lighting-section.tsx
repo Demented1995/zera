@@ -40,6 +40,8 @@ type LightingSectionProps = {
   items?: ConfiguratorItemSetting[];
   /** Model setup: choosing LED checks every supplementary component, including the transformer. */
   checkExtrasWithLed?: boolean;
+  /** Extras configured in the rules, so the model checklist does not repeat them. */
+  hiddenExtraIds?: readonly string[];
   onChange: (next: LightingConfig) => void;
 };
 
@@ -56,15 +58,24 @@ export function LightingSection({
   showTemperature = true,
   items,
   checkExtrasWithLed = false,
+  hiddenExtraIds,
   onChange,
 }: LightingSectionProps) {
+  const hiddenExtras = new Set<string>(hiddenExtraIds ?? []);
+
   function setLightingType(lightingType: LightingType) {
     const turningLedOn =
       checkExtrasWithLed &&
       lighting.lightingType === "none" &&
       lightingType !== "none";
     const next = turningLedOn ? withLedTechnicalExtras(lighting) : lighting;
-    onChange({ ...next, lightingType });
+    onChange({
+      ...next,
+      lightingType,
+      extraComponents: next.extraComponents.map((item) =>
+        hiddenExtras.has(item.id) ? { ...item, enabled: false, qty: 0 } : item,
+      ),
+    });
   }
 
   function patchFront(patch: Partial<LedSystemConfig>) {
@@ -345,7 +356,9 @@ export function LightingSection({
                 />
                 <span>Transformator</span>
               </label>
-              {lighting.extraComponents.map((extra) => {
+              {lighting.extraComponents
+                .filter((extra) => !hiddenExtras.has(extra.id))
+                .map((extra) => {
                 const meta = EXTRA_COMPONENTS.find((item) => item.id === extra.id)!;
                 return (
                   <div
@@ -512,27 +525,11 @@ function LedSystemFields({
             ? "Lungime LED de confirmat"
             : preview.error}
         </p>
-      ) : (
-        <dl className="grid gap-1 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm sm:grid-cols-2">
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Lungime bază</dt>
-            <dd>{preview.baseLengthM.toFixed(2)} m</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Supliment 10%</dt>
-            <dd>{preview.supplementM.toFixed(2)} m</dd>
-          </div>
-          <div className="flex justify-between gap-2 sm:col-span-2">
-            <dt className="text-muted-foreground">Lungime totală</dt>
-            <dd className="font-medium">
-              {preview.totalLengthM.toFixed(2)} m
-              {preview.source === "manual" ? " (manual)" : ""}
-            </dd>
-          </div>
-        </dl>
-      )}
+      ) : null}
 
-      {!shapeIsRectangular && shapeId !== "round" ? (
+      {!shapeIsRectangular &&
+      shapeId !== "round" &&
+      (shapeId !== "arcade" || "error" in preview) ? (
         <div className="grid gap-1.5">
           <Label>Lungime de bază (mm) — formulă neconfirmată</Label>
           <Input

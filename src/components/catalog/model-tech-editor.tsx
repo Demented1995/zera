@@ -22,6 +22,7 @@ import {
 } from "@/modules/configurator/commercial";
 import {
   defaultLightingConfig,
+  MODEL_RULE_EXTRA_IDS,
   type LightingConfig,
 } from "@/modules/configurator/lighting";
 import type {
@@ -172,7 +173,13 @@ export function ModelTechEditor({
     ) {
       return { ok: false as const, message: "Adaosuri pe laturi invalide." };
     }
-    const lighting = form.lighting;
+    const hiddenExtras = new Set<string>(MODEL_RULE_EXTRA_IDS);
+    const lighting: LightingConfig = {
+      ...form.lighting,
+      extraComponents: form.lighting.extraComponents.map((item) =>
+        hiddenExtras.has(item.id) ? { ...item, enabled: false, qty: 0 } : item,
+      ),
+    };
     const state: ConfiguratorState = {
       shapeId: form.shapeId,
       widthMm,
@@ -185,7 +192,11 @@ export function ModelTechEditor({
         bottom: edges.bottom,
       },
       lighting,
-      processing: form.processing,
+      processing: {
+        ...form.processing,
+        defogEnabled: false,
+        mountingComponents: [],
+      },
       commercial: form.commercial,
     };
     const quotePayload = {
@@ -204,7 +215,11 @@ export function ModelTechEditor({
       transformerPcs: lighting.transformerPcs,
       electricalConnection: lighting.electricalConnection,
       extraComponents: lighting.extraComponents,
-      processing: form.processing,
+      processing: {
+        ...form.processing,
+        defogEnabled: false,
+        mountingComponents: [],
+      },
       commercial: form.commercial,
     };
     return { ok: true as const, widthMm, heightMm, state, quotePayload };
@@ -300,6 +315,10 @@ export function ModelTechEditor({
       );
     }
 
+    if (section.id === "defog") {
+      return null;
+    }
+
     if (section.id === "lighting") {
       return (
         <LightingSection
@@ -310,8 +329,14 @@ export function ModelTechEditor({
           shapeIsRectangular={shapeIsRectangular}
           shapeId={selectedShape?.id}
           showTemperature={false}
-          items={section.items}
+          items={section.items.filter(
+            (item) =>
+              item.id !== "diffuser" &&
+              item.id !== "switches" &&
+              item.id !== "power",
+          )}
           checkExtrasWithLed
+          hiddenExtraIds={MODEL_RULE_EXTRA_IDS}
           onChange={(lighting) => update("lighting", lighting)}
         />
       );
@@ -322,7 +347,13 @@ export function ModelTechEditor({
         <ProcessingSections
           key={section.id}
           only={section.id as ProcessingPart}
-          items={section.items}
+          items={
+            section.id === "frames"
+              ? section.items.filter(
+                  (item) => item.id !== "mounting" && item.id !== "hardware",
+                )
+              : section.items
+          }
           processing={form.processing}
           widthMm={widthMm}
           heightMm={heightMm}

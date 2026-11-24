@@ -17,6 +17,7 @@ import {
   type PlaceOrderInput,
   type PlaceOrderResult,
 } from "@/modules/orders/public";
+import { ProductQuestion } from "@/components/shop/product-question";
 import { ShareConfiguration } from "@/components/shop/share-configuration";
 import { selectedOptionSpecs } from "@/modules/shop/cart-summary";
 import type { ShopLocale } from "@/modules/shop/locale";
@@ -34,6 +35,7 @@ type Props = {
   cartNote?: string | null;
   orderContextNote?: string;
   locale?: ShopLocale;
+  phone?: string | null;
 };
 
 export function ProductPage({
@@ -48,6 +50,7 @@ export function ProductPage({
   cartNote,
   orderContextNote,
   locale = "ro",
+  phone = null,
 }: Props) {
   const copy = customer.productCopy;
   const statusNote = productStatusNote(customer.model.status);
@@ -131,6 +134,12 @@ export function ProductPage({
               {onOneClick ? (
                 <OneClickOrder disabled={!orderEnabled} onPlace={onOneClick} locale={locale} />
               ) : null}
+              <ProductQuestion
+                name={customer.model.name}
+                controls={customer.controls}
+                phone={phone}
+                locale={locale}
+              />
               {share ? (
                 <ShareConfiguration
                   modelId={share.modelId}
@@ -204,13 +213,15 @@ export function ProductPage({
             <RichContent document={copy.careDocument} />
           </section>
         ) : null}
-        {showWarranty || showDelivery ? (
-          <section className="space-y-8">
-            <h2 className="text-2xl font-medium tracking-tight">{t(locale, "warrantyDelivery")}</h2>
-            {showWarranty && copy ? <RichContent document={copy.warrantyDocument} /> : null}
-            {showDelivery && copy ? <RichContent document={copy.deliveryDocument} /> : null}
-          </section>
-        ) : null}
+        <section className="space-y-4">
+          <h2 className="text-2xl font-medium tracking-tight">{t(locale, "warrantyDelivery")}</h2>
+          <div className="max-w-3xl space-y-3 text-sm leading-6 text-muted-foreground">
+            <p>{t(locale, "warrantyPolicy")}</p>
+            <p>{t(locale, "deliveryPolicy")}</p>
+          </div>
+          {showWarranty && copy ? <RichContent document={copy.warrantyDocument} /> : null}
+          {showDelivery && copy ? <RichContent document={copy.deliveryDocument} /> : null}
+        </section>
       </div>
     </article>
   );

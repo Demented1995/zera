@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Ruler, ShieldCheck, SlidersHorizontal, Truck } from "lucide-react";
 
 import { CustomProjectDialog } from "@/components/shop/custom-project-dialog";
 import { ProductCard } from "@/components/shop/product-card";
 import { listPublicModels, parseCatalogFilters } from "@/modules/shop/catalog";
 import { listHomepageCategories } from "@/modules/shop/homepage";
 import { getShopLocale } from "@/modules/shop/locale";
-import { t } from "@/modules/shop/messages";
+import { t, type ShopMessageKey } from "@/modules/shop/messages";
 
 export const metadata: Metadata = {
   title: { absolute: "ZERA" },
@@ -23,10 +23,10 @@ export default async function HomePage() {
   const featured = catalog.rows.slice(0, 6);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-20 px-5 py-16 sm:py-24">
+    <div className="mx-auto w-full max-w-6xl space-y-15 px-5 py-12 sm:py-[4.5rem]">
       {homepageCategories.length > 0 ? (
         <section>
-          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {homepageCategories.map((category) => (
               <li key={category.id}>
                 <Link
@@ -75,22 +75,45 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      <section className="flex flex-col items-start gap-4 rounded-2xl border border-border px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+      <section aria-label={t(locale, "highlights")}>
+        <ul className="grid grid-cols-2 items-start gap-x-4 gap-y-3 border-y border-border py-4 text-center text-sm text-muted-foreground sm:grid-cols-4">
+          {(
+            [
+              ["advantageSizes", null, Ruler],
+              ["advantageWarranty", "advantageWarrantyDetail", ShieldCheck],
+              ["advantageDelivery", "advantageDeliveryDetail", Truck],
+              ["advantageConfig", null, SlidersHorizontal],
+            ] as const satisfies readonly (readonly [ShopMessageKey, ShopMessageKey | null, typeof Ruler])[]
+          ).map(([key, detail, Icon]) => (
+            <li key={key} className="flex flex-col items-center gap-1.5">
+              <Icon className="size-4" aria-hidden />
+              <span className="w-full text-balance">{t(locale, key)}</span>
+              {detail ? (
+                <span className="w-full text-balance text-xs leading-5">{t(locale, detail)}</span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col items-start gap-5 rounded-2xl bg-foreground px-6 py-8 text-background sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-10">
         <div className="max-w-xl space-y-2">
-          <h2 className="text-2xl font-medium tracking-tight">{t(locale, "customProjectTitle")}</h2>
-          <p className="text-sm leading-6 text-muted-foreground">{t(locale, "customProjectLead")}</p>
+          <h2 className="text-2xl font-medium tracking-tight sm:text-3xl">
+            {t(locale, "customProjectTitle")}
+          </h2>
+          <p className="text-sm leading-6 text-background/75">{t(locale, "customProjectLead")}</p>
         </div>
         <CustomProjectDialog locale={locale} />
       </section>
 
-      <section className="space-y-8">
+      <section className="space-y-6">
         <h1 className="text-2xl font-medium tracking-tight">{t(locale, "availableModels")}</h1>
         {featured.length === 0 ? (
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
             {t(locale, "nonePublished")}
           </p>
         ) : (
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:gap-10 lg:grid-cols-3">
             {featured.map((model) => (
               <ProductCard key={model.id} model={model} />
             ))}

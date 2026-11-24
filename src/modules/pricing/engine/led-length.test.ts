@@ -63,6 +63,37 @@ describe("round LED length", () => {
   });
 });
 
+describe("arcade LED length", () => {
+  it("uses the mirror perimeter, then the 10% reserve", () => {
+    const result = resolveLedLength({
+      shapeIsRectangular: false,
+      shapeId: "arcade",
+      widthMm: 600,
+      heightMm: 1000,
+      positioning: "perimeter",
+    });
+    assert.ok(!("error" in result));
+    assert.equal(result.baseLengthMm, 3200);
+    assert.equal(result.baseLengthM, 3.2);
+    assert.equal(result.supplementM, 0.32);
+    assert.equal(result.totalLengthM, 3.52);
+    assert.equal(result.source, "auto-arcade");
+    assert.equal(ledLengthCost(result.totalLengthM, 40), 140.8);
+  });
+
+  it("keeps the perimeter when another positioning is selected", () => {
+    const result = resolveLedLength({
+      shapeIsRectangular: false,
+      shapeId: "arcade",
+      widthMm: 600,
+      heightMm: 1000,
+      positioning: "two_height",
+    });
+    assert.ok(!("error" in result));
+    assert.equal(result.totalLengthM, 3.52);
+  });
+});
+
 describe("special shapes", () => {
   it("does not auto-use bounding-rect perimeter for special shapes", () => {
     const result = resolveLedLength({

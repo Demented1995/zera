@@ -231,6 +231,16 @@ export function getSwitchType(id: SwitchTypeId) {
   return SWITCH_TYPES.find((item) => item.id === id)!;
 }
 
+/**
+ * These parts are chosen in the configurator rules, not on the model checklist.
+ * Ansamblu is removed from the model list with them.
+ */
+export const MODEL_RULE_EXTRA_IDS = [
+  "assembly",
+  "plexiglass-diffuser",
+  "aluminium-diffusion-profile",
+] as const;
+
 /** Customer-facing diffuser choices. Position, strip type, and wattage stay on the model. */
 export const LIGHTING_DIFFUSER_IDS = [
   "plexiglass-diffuser",

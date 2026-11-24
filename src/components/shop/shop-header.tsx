@@ -1,9 +1,9 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useTransition } from "react";
+import { Suspense, useState, useTransition } from "react";
 
 import { useCart } from "@/components/shop/cart-provider";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,10 @@ export function ShopHeader({
 }) {
   const cart = useCart();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const iconContacts = contacts.filter((contact) => !contact.text);
+  const phoneContact = contacts.find((contact) => contact.id === "phone");
 
   function chooseLocale(next: ShopLocale) {
     if (next === locale || pending) {
@@ -34,12 +37,86 @@ export function ShopHeader({
   }
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3">
-        <Link href="/" className="text-sm tracking-[0.32em] uppercase">
+      <div className="mx-auto w-full max-w-6xl px-4 py-3 md:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" className="text-[1.14rem] tracking-[0.32em] uppercase">
+            ZERA
+          </Link>
+          <div className="flex items-center gap-2">
+            {iconContacts.map((contact) => (
+              <ContactButton key={contact.id} contact={contact} />
+            ))}
+            <Link
+              href="/cos"
+              aria-label={
+                cart.count > 0
+                  ? `${t(locale, "cart")} (${cart.count})`
+                  : t(locale, "cart")
+              }
+              className="relative inline-flex size-9 items-center justify-center rounded-full border border-border"
+            >
+              <ShoppingBag className="size-4" aria-hidden="true" />
+              {cart.count > 0 ? (
+                <span className="absolute -top-1 -right-1 inline-flex min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] leading-4 text-background">
+                  {cart.count}
+                </span>
+              ) : null}
+            </Link>
+            <button
+              type="button"
+              aria-expanded={menuOpen}
+              aria-label={t(locale, "menu")}
+              className="inline-flex size-9 items-center justify-center rounded-full border border-border"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? (
+                <X className="size-4" aria-hidden="true" />
+              ) : (
+                <Menu className="size-4" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <HeaderSearch locale={locale} id="nav-search-mobile" className="min-w-0 flex-1" />
+          <label className="sr-only" htmlFor="nav-locale">
+            {locale === "ru" ? "Язык" : "Limbă"}
+          </label>
+          <select
+            id="nav-locale"
+            value={locale}
+            disabled={pending}
+            className="h-8 w-14 shrink-0 rounded-lg border border-input bg-background px-1 text-sm uppercase"
+            onChange={(event) => chooseLocale(event.target.value as ShopLocale)}
+          >
+            <option value="ro">RO</option>
+            <option value="ru">RU</option>
+          </select>
+        </div>
+        {menuOpen ? (
+          <nav className="mt-3 grid gap-1 border-t border-border pt-3 text-sm">
+            <Link
+              href="/catalog"
+              className="rounded-lg px-2 py-2 hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              {t(locale, "catalog")}
+            </Link>
+            {phoneContact ? (
+              <a href={phoneContact.href} className="rounded-lg px-2 py-2 hover:bg-muted">
+                {phoneContact.label}
+                {phoneContact.text ? ` ${phoneContact.text}` : ""}
+              </a>
+            ) : null}
+          </nav>
+        ) : null}
+      </div>
+      <div className="mx-auto hidden min-h-16 w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3 md:flex">
+        <Link href="/" className="text-[1.14rem] tracking-[0.32em] uppercase">
           ZERA
         </Link>
-        <HeaderSearch locale={locale} />
-        <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-2">
+        <HeaderSearch locale={locale} id="nav-search" className="min-w-72 flex-1 max-w-xl" />
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <nav className="flex items-center gap-5 text-sm">
             <Link href="/catalog" className="underline-offset-4 hover:underline">
               {t(locale, "catalog")}
@@ -92,27 +169,49 @@ export function ShopHeader({
   );
 }
 
-function HeaderSearch({ locale }: { locale: ShopLocale }) {
+function HeaderSearch({
+  locale,
+  id,
+  className,
+}: {
+  locale: ShopLocale;
+  id: string;
+  className: string;
+}) {
   return (
-    <Suspense
-      fallback={
-        <SearchForm locale={locale} query="" />
-      }
-    >
-      <HeaderSearchField locale={locale} />
+    <Suspense fallback={<SearchForm locale={locale} query="" id={id} className={className} />}>
+      <HeaderSearchField locale={locale} id={id} className={className} />
     </Suspense>
   );
 }
 
-function HeaderSearchField({ locale }: { locale: ShopLocale }) {
+function HeaderSearchField({
+  locale,
+  id,
+  className,
+}: {
+  locale: ShopLocale;
+  id: string;
+  className: string;
+}) {
   const query = useSearchParams().get("q") ?? "";
-  return <SearchForm locale={locale} query={query} />;
+  return <SearchForm locale={locale} query={query} id={id} className={className} />;
 }
 
-function SearchForm({ locale, query }: { locale: ShopLocale; query: string }) {
+function SearchForm({
+  locale,
+  query,
+  id,
+  className,
+}: {
+  locale: ShopLocale;
+  query: string;
+  id: string;
+  className: string;
+}) {
   return (
-    <form action="/catalog" method="get" className="relative order-last w-full sm:order-none sm:w-56">
-      <label htmlFor="nav-search" className="sr-only">
+    <form action="/catalog" method="get" className={`relative ${className}`}>
+      <label htmlFor={id} className="sr-only">
         {t(locale, "search")}
       </label>
       <Search
@@ -120,7 +219,7 @@ function SearchForm({ locale, query }: { locale: ShopLocale; query: string }) {
         aria-hidden="true"
       />
       <Input
-        id="nav-search"
+        id={id}
         name="q"
         type="search"
         key={query}
@@ -129,6 +228,20 @@ function SearchForm({ locale, query }: { locale: ShopLocale; query: string }) {
         className="h-8 bg-background pl-8"
       />
     </form>
+  );
+}
+
+function ContactButton({ contact }: { contact: ShopContactLink }) {
+  return (
+    <a
+      href={contact.href}
+      aria-label={contact.label}
+      title={contact.label}
+      className={`inline-flex size-9 items-center justify-center rounded-full text-white ${contactTone[contact.id]}`}
+      {...(contact.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+    >
+      <ContactIcon id={contact.id} />
+    </a>
   );
 }
 
