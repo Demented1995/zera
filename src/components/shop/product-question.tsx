@@ -1,9 +1,5 @@
 import type { PreviewControl } from "@/modules/catalog/preview/types";
-import {
-  productQuestionLinks,
-  productQuestionText,
-  type ShopContactLink,
-} from "@/modules/shop/contact-links";
+import { productQuestionLinks, productQuestionText } from "@/modules/shop/contact-links";
 import type { ShopLocale } from "@/modules/shop/locale";
 import { t } from "@/modules/shop/messages";
 
@@ -42,24 +38,26 @@ export function ProductQuestion({
       <p className="text-sm">{t(locale, "askAbout").replace("{name}", name.trim())}</p>
       <p className="text-sm leading-6 text-muted-foreground">{text}</p>
       <div className="flex flex-wrap gap-2">
-        {links.map((link) => (
-          <a
-            key={link.id}
-            href={link.href}
-            aria-label={`${link.label}. ${text}`}
-            title={link.label}
-            className={`inline-flex size-9 items-center justify-center rounded-full text-white ${tone[link.id]}`}
-            {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
-          >
-            <MessengerIcon id={link.id} />
-          </a>
-        ))}
+        {links.map((link) =>
+          link.id === "phone" ? null : (
+            <a
+              key={link.id}
+              href={link.href}
+              aria-label={`${link.label}. ${text}`}
+              title={link.label}
+              className={`inline-flex size-9 items-center justify-center rounded-full text-white ${tone[link.id]}`}
+              {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+            >
+              <MessengerIcon id={link.id} />
+            </a>
+          ),
+        )}
       </div>
     </div>
   );
 }
 
-function MessengerIcon({ id }: { id: ShopContactLink["id"] }) {
+function MessengerIcon({ id }: { id: "viber" | "whatsapp" | "telegram" }) {
   if (id === "whatsapp") {
     return (
       <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
