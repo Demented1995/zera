@@ -529,6 +529,8 @@ function LedSystemFields({
 
       {!shapeIsRectangular &&
       shapeId !== "round" &&
+      shapeId !== "rounded-rect" &&
+      shapeId !== "asymmetric" &&
       (shapeId !== "arcade" || "error" in preview) ? (
         <div className="grid gap-1.5">
           <Label>Lungime de bază (mm) — formulă neconfirmată</Label>

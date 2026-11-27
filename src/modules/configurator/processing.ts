@@ -1,6 +1,6 @@
 import type { MirrorFixingId } from "@/modules/configurator/fixing";
 import { UNPRICED_SEED } from "@/modules/materials/unpriced-catalog";
-import { ROUND_LED_PI } from "@/modules/pricing/engine/led-length";
+import { ROUND_LED_PI, usesLedOutline } from "@/modules/pricing/engine/led-length";
 import { roundMoney } from "@/modules/pricing/engine/money";
 import { MATERIAL_SEED_KEYS } from "@/modules/pricing/engine";
 import type { DetailedComponentLine } from "@/modules/pricing/engine/types";
@@ -319,8 +319,8 @@ export function frameLengthM(
 
 /**
  * Outline billed for ramă plastic and ABS.
- * Rectangle and arcade use 2 × (width + height). Round uses diameter × 3.14.
- * Other special shapes stay unconfirmed.
+ * Rectangle, arcade, rounded rectangle, and asymmetric use 2 × (width + height).
+ * Round uses diameter × 3.14. Other special shapes stay unconfirmed.
  */
 export function componentPerimeterM(
   widthMm: number,
@@ -334,7 +334,7 @@ export function componentPerimeterM(
     }
     return roundMoney((widthMm * ROUND_LED_PI) / 1000);
   }
-  if (!(shapeIsRectangular || shapeId === "arcade")) {
+  if (!(shapeIsRectangular || usesLedOutline(shapeId))) {
     return null;
   }
   if (!(widthMm > 0) || !(heightMm > 0)) {

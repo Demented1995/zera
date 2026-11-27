@@ -30,6 +30,7 @@ export const saveMirrorModelSchema = z.object({
   shortDescription: z.string().max(300).optional().nullable(),
   fullDescription: z.string().max(5000).optional().nullable(),
   categoryId: z.string().cuid(),
+  secondaryCategoryId: z.string().cuid().nullable().optional(),
   /** Target commercial status. ACTIVE is rejected server-side if calc incomplete. */
   status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).default("DRAFT"),
   /** Full configurator payload (ConfiguratorState-compatible). */

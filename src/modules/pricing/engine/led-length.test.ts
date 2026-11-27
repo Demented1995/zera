@@ -94,6 +94,35 @@ describe("arcade LED length", () => {
   });
 });
 
+describe("rounded and asymmetric LED length", () => {
+  it("uses the mirror perimeter for a rounded rectangle, then the 10% reserve", () => {
+    const result = resolveLedLength({
+      shapeIsRectangular: false,
+      shapeId: "rounded-rect",
+      widthMm: 600,
+      heightMm: 1000,
+      positioning: "perimeter",
+    });
+    assert.ok(!("error" in result));
+    assert.equal(result.baseLengthMm, 3200);
+    assert.equal(result.totalLengthM, 3.52);
+    assert.equal(result.source, "auto-perimeter");
+  });
+
+  it("uses the same perimeter for an asymmetric mirror", () => {
+    const result = resolveLedLength({
+      shapeIsRectangular: false,
+      shapeId: "asymmetric",
+      widthMm: 600,
+      heightMm: 1000,
+      positioning: "one_width",
+    });
+    assert.ok(!("error" in result));
+    assert.equal(result.totalLengthM, 3.52);
+    assert.equal(result.source, "auto-perimeter");
+  });
+});
+
 describe("special shapes", () => {
   it("does not auto-use bounding-rect perimeter for special shapes", () => {
     const result = resolveLedLength({

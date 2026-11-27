@@ -165,7 +165,10 @@ export default async function ModelePage({ searchParams }: PageProps) {
                       /{row.slug}
                     </div>
                   </TableCell>
-                  <TableCell>{row.category.name}</TableCell>
+                  <TableCell>
+                    {row.category.name}
+                    {row.secondaryCategory ? ` · ${row.secondaryCategory.name}` : ""}
+                  </TableCell>
                   <TableCell className="text-xs">
                     {row.shapeLabel}
                     <br />

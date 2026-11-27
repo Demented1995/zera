@@ -37,6 +37,7 @@ type ModelFormProps = {
     shortDescription: string | null;
     fullDescription: string | null;
     categoryId: string;
+    secondaryCategoryId?: string | null;
     status: "DRAFT" | "ACTIVE" | "ARCHIVED";
     config: ConfiguratorState;
     sourceConfigurationId: string | null;
@@ -71,6 +72,9 @@ export function ModelForm({
   );
   const [categoryId, setCategoryId] = useState(
     initial?.categoryId ?? categories[0]?.id ?? "",
+  );
+  const [secondaryCategoryId, setSecondaryCategoryId] = useState(
+    initial?.secondaryCategoryId ?? "",
   );
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE" | "ARCHIVED">(
     initial?.status === "ARCHIVED" ? "ARCHIVED" : (initial?.status ?? "DRAFT"),
@@ -134,6 +138,7 @@ export function ModelForm({
         shortDescription: shortDescription.trim() || null,
         fullDescription: fullDescription.trim() || null,
         categoryId,
+        secondaryCategoryId: secondaryCategoryId || null,
         status,
         config: configPayload,
         sourceConfigurationId: sourceConfigurationId || null,
@@ -210,7 +215,11 @@ export function ModelForm({
               value={categoryId}
               onChange={(event) => {
                 markDirty();
-                setCategoryId(event.target.value);
+                const next = event.target.value;
+                setCategoryId(next);
+                if (secondaryCategoryId === next) {
+                  setSecondaryCategoryId("");
+                }
               }}
             >
               {categories.map((category) => (
@@ -225,6 +234,30 @@ export function ModelForm({
             >
               Gestionează categorii
             </Link>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="model-category-2">A doua categorie</Label>
+            <select
+              id="model-category-2"
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+              value={secondaryCategoryId}
+              onChange={(event) => {
+                markDirty();
+                setSecondaryCategoryId(event.target.value);
+              }}
+            >
+              <option value="">Fără a doua categorie</option>
+              {categories
+                .filter((category) => category.id !== categoryId)
+                .map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              O oglindă cu LED și ramă, sau una asimetrică simplă și cu LED, poate apărea în ambele categorii.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="model-short">Descriere scurtă</Label>

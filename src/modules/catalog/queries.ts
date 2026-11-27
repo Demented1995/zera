@@ -22,18 +22,29 @@ export async function listMirrorModels(filters: {
   if (filters.status && filters.status !== "ALL") {
     where.status = filters.status;
   }
+  const and: Prisma.MirrorModelWhereInput[] = [];
   if (filters.categoryId && filters.categoryId !== "ALL") {
-    where.categoryId = filters.categoryId;
+    and.push({
+      OR: [
+        { categoryId: filters.categoryId },
+        { secondaryCategoryId: filters.categoryId },
+      ],
+    });
   }
   const q = filters.q?.trim();
   if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { code: { contains: q, mode: "insensitive" } },
-      { slug: { contains: q, mode: "insensitive" } },
-      { shapeLabel: { contains: q, mode: "insensitive" } },
-      { shortDescription: { contains: q, mode: "insensitive" } },
-    ];
+    and.push({
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { code: { contains: q, mode: "insensitive" } },
+        { slug: { contains: q, mode: "insensitive" } },
+        { shapeLabel: { contains: q, mode: "insensitive" } },
+        { shortDescription: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (and.length > 0) {
+    where.AND = and;
   }
 
   const sort = filters.sort ?? "updatedAt";
@@ -43,6 +54,7 @@ export async function listMirrorModels(filters: {
     where,
     include: {
       category: { select: { id: true, name: true, slug: true } },
+      secondaryCategory: { select: { id: true, name: true, slug: true } },
       createdBy: { select: { id: true, name: true, email: true } },
       updatedBy: { select: { id: true, name: true, email: true } },
       _count: { select: { offers: true } },
@@ -61,6 +73,7 @@ export async function getMirrorModel(id: string) {
     where: { id },
     include: {
       category: true,
+      secondaryCategory: true,
       createdBy: { select: { id: true, name: true, email: true } },
       updatedBy: { select: { id: true, name: true, email: true } },
       sourceConfiguration: { select: { id: true, code: true, name: true } },

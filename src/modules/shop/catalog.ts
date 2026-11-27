@@ -116,10 +116,18 @@ function catalogWhere(filters: CatalogFilters): Prisma.MirrorModelWhereInput {
               { shortDescription: { contains: q, mode: "insensitive" } },
               { shapeLabel: { contains: q, mode: "insensitive" } },
               { category: { name: { contains: q, mode: "insensitive" } } },
+              { secondaryCategory: { name: { contains: q, mode: "insensitive" } } },
             ],
           }
         : {},
-      filters.category ? { category: { slug: filters.category, isActive: true } } : {},
+      filters.category
+        ? {
+            OR: [
+              { category: { slug: filters.category, isActive: true } },
+              { secondaryCategory: { slug: filters.category, isActive: true } },
+            ],
+          }
+        : {},
       filters.shape ? { shapeId: filters.shape } : {},
       filters.minWidth != null ? { defaultWidthMm: { gte: filters.minWidth } } : {},
       filters.maxWidth != null ? { defaultWidthMm: { lte: filters.maxWidth } } : {},
@@ -143,6 +151,7 @@ const cardSelect = {
   retailPrice: true,
   translationsJson: true,
   category: { select: { name: true, nameRu: true, slug: true } },
+  secondaryCategory: { select: { name: true, nameRu: true, slug: true } },
   images: {
     orderBy: [{ isPrimary: "desc" as const }, { sortOrder: "asc" as const }],
     take: 1,
@@ -162,13 +171,20 @@ function toCard(row: {
   retailPrice: Prisma.Decimal | null;
   translationsJson: unknown;
   category: { name: string; nameRu: string | null; slug: string };
+  secondaryCategory: { name: string; nameRu: string | null; slug: string } | null;
   images: Array<{ id: string; altText: string }>;
 }, locale: ShopLocale): PublicModelCard {
   const image = row.images[0];
   const russian = locale === "ru" ? readProductTranslation(row.translationsJson) : null;
   const name = russian?.name || row.name;
-  const categoryName =
+  const primaryName =
     locale === "ru" ? row.category.nameRu?.trim() || localizePhrase("ru", row.category.name) : row.category.name;
+  const secondaryName = row.secondaryCategory
+    ? locale === "ru"
+      ? row.secondaryCategory.nameRu?.trim() || localizePhrase("ru", row.secondaryCategory.name)
+      : row.secondaryCategory.name
+    : null;
+  const categoryName = secondaryName ? `${primaryName} · ${secondaryName}` : primaryName;
   return {
     id: row.id,
     slug: row.slug,
@@ -243,6 +259,7 @@ export async function catalogFacets(locale: ShopLocale = "ro") {
       shapeId: true,
       shapeLabel: true,
       category: { select: { name: true, nameRu: true, slug: true, description: true, descriptionRu: true } },
+      secondaryCategory: { select: { name: true, nameRu: true, slug: true, description: true, descriptionRu: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -261,6 +278,19 @@ export async function catalogFacets(locale: ShopLocale = "ro") {
           : row.category.description,
     });
     shapes.set(row.shapeId, localizePhrase(locale, row.shapeLabel));
+    if (row.secondaryCategory) {
+      categories.set(row.secondaryCategory.slug, {
+        slug: row.secondaryCategory.slug,
+        name:
+          locale === "ru"
+            ? row.secondaryCategory.nameRu?.trim() || localizePhrase("ru", row.secondaryCategory.name)
+            : row.secondaryCategory.name,
+        description:
+          locale === "ru"
+            ? row.secondaryCategory.descriptionRu?.trim() || row.secondaryCategory.description
+            : row.secondaryCategory.description,
+      });
+    }
   }
   return {
     categories: [...categories.values()],

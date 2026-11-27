@@ -71,6 +71,15 @@ export default async function ModelEditPage({ params }: PageProps) {
       name: `${model.category.name} (inactivă)`,
     });
   }
+  if (
+    model.secondaryCategory &&
+    !categoryOptions.some((category) => category.id === model.secondaryCategoryId)
+  ) {
+    categoryOptions.push({
+      id: model.secondaryCategory.id,
+      name: `${model.secondaryCategory.name} (inactivă)`,
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -123,6 +132,7 @@ export default async function ModelEditPage({ params }: PageProps) {
           shortDescription: model.shortDescription,
           fullDescription: model.fullDescription,
           categoryId: model.categoryId,
+          secondaryCategoryId: model.secondaryCategoryId,
           status: model.status,
           config: model.configJson as unknown as ConfiguratorState,
           sourceConfigurationId: model.sourceConfigurationId,

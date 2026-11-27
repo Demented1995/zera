@@ -39,11 +39,25 @@ export async function listHomepageCategories(locale: ShopLocale = "ro"): Promise
           },
         },
       },
+      secondaryModels: {
+        where: { isPublished: true, status: "ACTIVE" },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          name: true,
+          images: {
+            orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+            take: 1,
+            select: { id: true, altText: true },
+          },
+        },
+      },
     },
   });
 
   return rows.map((row) => {
-    const model = row.models[0];
+    const model = row.models[0] ?? row.secondaryModels[0];
     const image = model?.images[0];
     const caption =
       (locale === "ru" ? row.homeCaptionRu?.trim() : "") || row.homeCaption?.trim() || null;

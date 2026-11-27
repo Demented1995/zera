@@ -205,7 +205,8 @@ model MirrorModelCategory {
   createdBy   User?         @relation("MirrorCategoryCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  models      MirrorModel[]
+  models      MirrorModel[] @relation("ModelPrimaryCategory")
+  secondaryModels MirrorModel[] @relation("ModelSecondaryCategory")
 
   @@index([isActive, sortOrder])
 }
@@ -237,7 +238,10 @@ model MirrorModel {
   /// Russian public copy. Empty fields fall back to the Romanian text.
   translationsJson  Json?
   categoryId        String
-  category          MirrorModelCategory @relation(fields: [categoryId], references: [id])
+  category          MirrorModelCategory @relation("ModelPrimaryCategory", fields: [categoryId], references: [id])
+  /// Optional second storefront category. The model stays one product.
+  secondaryCategoryId String?
+  secondaryCategory MirrorModelCategory? @relation("ModelSecondaryCategory", fields: [secondaryCategoryId], references: [id])
   status            MirrorModelStatus @default(DRAFT)
   /// Future public-site publish flag — independent of ACTIVE commercial status.
   isPublished       Boolean           @default(false)
@@ -284,6 +288,7 @@ model MirrorModel {
 
   @@index([status])
   @@index([categoryId])
+  @@index([secondaryCategoryId])
   @@index([updatedAt])
   @@index([name])
   @@index([slug])

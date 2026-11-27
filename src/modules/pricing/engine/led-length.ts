@@ -23,7 +23,13 @@ export type LedLengthComputation = {
   /** Total billable meters after 10%. */
   totalLengthM: number;
   /** How the base length was obtained. */
-  source: "auto-rectangular" | "auto-round" | "auto-arcade" | "manual" | "unconfirmed";
+  source:
+    | "auto-rectangular"
+    | "auto-round"
+    | "auto-arcade"
+    | "auto-perimeter"
+    | "manual"
+    | "unconfirmed";
   note?: string;
 };
 
@@ -68,6 +74,16 @@ export function applyLedLengthSupplement(baseLengthMm: number): LedLengthComputa
   };
 }
 
+/**
+ * Shapes billed on the bounding outline 2 × (width + height).
+ * Rounded corners and an asymmetric outline use that same perimeter.
+ */
+export const LED_OUTLINE_SHAPE_IDS = ["arcade", "rounded-rect", "asymmetric"] as const;
+
+export function usesLedOutline(shapeId?: string): boolean {
+  return LED_OUTLINE_SHAPE_IDS.some((id) => id === shapeId);
+}
+
 /** Arcade LED base: the mirror perimeter, same as a rectangle. */
 export function computeArcadeLedBaseMm(
   widthMm: number,
@@ -83,7 +99,7 @@ export function computeArcadeLedBaseMm(
  * Resolve LED length for a system.
  * - Rectangular mirrors: auto from positioning.
  * - Round mirrors: diameter × 3.14, then the same 10% reserve.
- * - Arcade: mirror perimeter, then the same 10% reserve.
+ * - Arcade, rounded rectangle, and asymmetric: mirror perimeter, then the same 10% reserve.
  * - Other special shapes: require a manual base mm
  *   (10% applied once on that base — never doubled).
  */
@@ -118,17 +134,23 @@ export function resolveLedLength(options: {
     };
   }
 
-  if (shapeId === "arcade") {
+  if (usesLedOutline(shapeId)) {
     const baseMm = computeArcadeLedBaseMm(widthMm, heightMm);
     if (baseMm == null) {
       return {
-        error: "Lungime LED de confirmat — dimensiunile arcadei nu sunt setate.",
+        error: "Lungime LED de confirmat — dimensiunile nu sunt setate.",
       };
     }
+    const note =
+      shapeId === "rounded-rect"
+        ? "Dreptunghi rotunjit: perimetrul oglinzii, apoi rezerva de 10%."
+        : shapeId === "asymmetric"
+          ? "Asimetrică: perimetrul oglinzii, apoi rezerva de 10%."
+          : "Arcadă: perimetrul oglinzii, apoi rezerva de 10%.";
     return {
       ...applyLedLengthSupplement(baseMm),
-      source: "auto-arcade",
-      note: "Arcadă: perimetrul oglinzii, apoi rezerva de 10%.",
+      source: shapeId === "arcade" ? "auto-arcade" : "auto-perimeter",
+      note,
     };
   }
 

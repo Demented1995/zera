@@ -233,6 +233,18 @@ export async function saveMirrorModelAction(
   if (!category) {
     return { ok: false, message: "Categoria comercială nu este validă." };
   }
+  const secondaryCategoryId = data.secondaryCategoryId ?? null;
+  if (secondaryCategoryId && secondaryCategoryId === data.categoryId) {
+    return { ok: false, message: "Alege două categorii diferite." };
+  }
+  if (secondaryCategoryId) {
+    const secondary = await prisma.mirrorModelCategory.findFirst({
+      where: { id: secondaryCategoryId, isActive: true },
+    });
+    if (!secondary) {
+      return { ok: false, message: "A doua categorie nu este validă." };
+    }
+  }
 
   const slugConflict = await findSlugConflict(prisma, data.slug, data.id ?? null);
   if (slugConflict) {
@@ -289,6 +301,7 @@ export async function saveMirrorModelAction(
     shortDescription: data.shortDescription ?? null,
     fullDescription: data.fullDescription ?? null,
     categoryId: data.categoryId,
+    secondaryCategoryId,
     status,
     configJson: state as unknown as Prisma.InputJsonValue,
     calculationJson: (calculation ?? {
@@ -580,6 +593,7 @@ export async function duplicateMirrorModelAction(
       seoDescription: source.seoDescription,
       slugCustomized: true,
       categoryId: source.categoryId,
+      secondaryCategoryId: source.secondaryCategoryId,
       status: "DRAFT",
       isPublished: false,
       configJson: source.configJson as Prisma.InputJsonValue,
